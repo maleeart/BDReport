@@ -341,12 +341,32 @@ export async function GET(req: NextRequest) {
     // Sort all slide entries chronologically across the week
     reportsList.sort((a, b) => a.sortTimestamp - b.sortTimestamp);
 
-    // Extract unique groups list
-    const uniqueGroups = Array.from(new Set(reportsList.map(r => r.groupId)));
-    const groupsList = uniqueGroups.map(gid => ({
-      groupId: gid,
-      groupName: groupNamesMap[gid] || (gid === 'private' ? 'แชทส่วนตัว' : `กลุ่ม LINE (${gid.substring(0, 6)})`)
-    }));
+    // Consolidate all reports under the main actual group (e.g. EGAT IOT)
+    let mainGroupId = 'EGAT_IOT';
+    let mainGroupName = 'EGAT IOT';
+    try {
+      const groupsSnapshot = await db.collection('line_groups').get();
+      const actualGroups = groupsSnapshot.docs
+        .map(doc => ({ id: doc.id, name: doc.data()?.groupName }))
+        .filter(g => g.name && !g.name.startsWith('แชทส่วนตัว') && !g.id.startsWith('private_') && !g.name.startsWith('กลุ่ม LINE'));
+      
+      if (actualGroups.length > 0) {
+        mainGroupId = actualGroups[0].id;
+        mainGroupName = actualGroups[0].name;
+      }
+    } catch (err) {
+      console.error('Error fetching main group:', err);
+    }
+
+    reportsList.forEach((rep) => {
+      rep.groupId = mainGroupId;
+      rep.groupName = mainGroupName;
+    });
+
+    const groupsList = [{
+      groupId: mainGroupId,
+      groupName: mainGroupName
+    }];
 
     return NextResponse.json({
       date: thaiWeekRange,
