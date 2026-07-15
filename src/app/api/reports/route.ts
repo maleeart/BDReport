@@ -92,120 +92,127 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ date: thaiWeekRange, reports: [] });
     }
 
-    // Group by userId AND dateStr (YYYY-MM-DD) to generate a separate slide per daily entry for each user
-    const groupMap: Record<string, { userId: string; dateStr: string; reports: any[] }> = {};
-    
+    // Group reports by userId first
+    const userReportsMap: Record<string, any[]> = {};
     snapshot.docs.forEach((doc: any) => {
       const data = doc.data();
       const userId = data.userId;
-      
-      const createdAt = data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt);
-      const dateStr = createdAt.toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' });
-      
-      const key = `${userId}_${dateStr}`;
-      if (!groupMap[key]) {
-        groupMap[key] = { userId, dateStr, reports: [] };
+      if (!userReportsMap[userId]) {
+        userReportsMap[userId] = [];
       }
-      groupMap[key].reports.push(data);
+      userReportsMap[userId].push(data);
     });
 
     const reportsList: any[] = [];
 
-    // Process each group (user + day)
-    for (const group of Object.values(groupMap)) {
-      const { userId, dateStr, reports } = group;
-      
-      const textReports = reports
-        .filter((r) => r.type === 'text')
-        .map((r) => r.content)
-        .join('\n');
+    // For each user, cluster their messages into separate "tasks" based on a 1-minute (60,000 ms) window
+    for (const [userId, reports] of Object.entries(userReportsMap)) {
+      // Sort reports chronologically
+      reports.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
 
-      const imageReport = reports.find((r) => r.type === 'image');
+      const taskGroups: any[][] = [];
+      let currentGroup: any[] = [];
 
-      // Define default fallbacks depending on if they sent an image
-      let summary: string[] = imageReport ? ['ส่งเฉพาะรูปภาพประกอบ'] : ['ไม่มีรายงานข้อความ'];
-      let title = imageReport ? 'รายงานรูปภาพ' : 'ไม่มีรายงานข้อความ';
+      for (const report of reports) {
+        if (currentGroup.length === 0) {
+          currentGroup.push(report);
+        } else {
+          const lastReport = currentGroup[currentGroup.length - 1];
+          // Compare LINE event timestamps (milliseconds)
+          const timeDiff = Math.abs((report.timestamp || 0) - (lastReport.timestamp || 0));
 
-      if (textReports.trim()) {
-        const prompt = `Analyze and summarize the following daily work reports for a team member.
+          if (timeDiff <= 60000) { // Proximity within 1 minute
+            currentGroup.push(report);
+          } else {
+            taskGroups.push(currentGroup);
+            currentGroup = [report];
+          }
+        }
+      }
+      if (currentGroup.length > 0) {
+        taskGroups.push(currentGroup);
+      }
+
+      // Process each task cluster as a separate report entry (and slide)
+      for (const group of taskGroups) {
+        const textReports = group
+          .filter((r) => r.type === 'text')
+          .map((r) => r.content)
+          .join('\n');
+
+        const imageReport = group.find((r) => r.type === 'image');
+        const representativeReport = group[0];
+
+        let summary: string[] = imageReport ? ['ส่งเฉพาะรูปภาพประกอบ'] : ['ไม่มีรายงานข้อความ'];
+        let title = imageReport ? 'รายงานรูปภาพ' : 'ไม่มีรายงานข้อความ';
+
+        if (textReports.trim()) {
+          const prompt = `Analyze and summarize the following daily work report for a team member.
 Return a JSON object containing:
 {
-  "title": "A short 3-5 word keyword title/subject of the main work done on this day",
-  "summary": ["work 1", "work 2", ...]
+  "title": "A short 3-5 word keyword title/subject of the main work done in this entry",
+  "summary": ["task 1", "task 2", ...]
 }
 Keep the title and summaries extremely concise, in Thai, and highly professional.
 Do NOT wrap the output in markdown code blocks like \`\`\`json. Output raw JSON only.
 Reports:
 ${textReports}`;
 
-        const geminiRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1/models/gemini-3.5-flash:generateContent?key=${geminiApiKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: prompt }] }],
-            }),
-          }
-        );
+          const geminiRes = await fetch(
+            `https://generativelanguage.googleapis.com/v1/models/gemini-3.5-flash:generateContent?key=${geminiApiKey}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }],
+              }),
+            }
+          );
 
-        if (geminiRes.ok) {
-          const geminiData = await geminiRes.json();
-          let responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
-          responseText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
-          if (responseText) {
-            try {
-              const parsed = JSON.parse(responseText);
-              summary = parsed.summary || summary;
-              title = parsed.title || title;
-            } catch (err) {
-              console.error('Failed to parse Gemini response', err, 'Response was:', responseText);
+          if (geminiRes.ok) {
+            const geminiData = await geminiRes.json();
+            let responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            responseText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+            if (responseText) {
+              try {
+                const parsed = JSON.parse(responseText);
+                summary = parsed.summary || summary;
+                title = parsed.title || title;
+              } catch (err) {
+                console.error('Failed to parse Gemini response', err, 'Response was:', responseText);
+              }
             }
-          }
-        } else {
-          const errText = await geminiRes.text();
-          console.error(`Gemini API error: ${geminiRes.statusText} - Response: ${errText}`);
-          
-          try {
-            const listRes = await fetch(`https://generativelanguage.googleapis.com/v1/models?key=${geminiApiKey}`);
-            if (listRes.ok) {
-              const listData = await listRes.json();
-              const availableModels = listData.models?.map((m: any) => m.name) || [];
-              console.log(`[Diagnostic] Available models for this API key:`, JSON.stringify(availableModels));
-            }
-          } catch (listErr) {
-            console.error(`[Diagnostic] Failed to fetch available models:`, listErr);
+          } else {
+            const errText = await geminiRes.text();
+            console.error(`Gemini API error: ${geminiRes.statusText} - Response: ${errText}`);
           }
         }
+
+        // Format date in Bangkok timezone using representative report timestamp
+        const reportDate = representativeReport.createdAt?.toDate 
+          ? representativeReport.createdAt.toDate() 
+          : new Date(representativeReport.createdAt || representativeReport.timestamp);
+
+        const reportDateStr = reportDate.toLocaleDateString('th-TH', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          timeZone: 'Asia/Bangkok',
+        });
+
+        reportsList.push({
+          userId,
+          title,
+          date: reportDateStr,
+          summary,
+          base64Image: imageReport?.base64Image || null,
+          sortTimestamp: representativeReport.timestamp || 0,
+        });
       }
-
-      // Format date for the slide (e.g. DD/MM/YYYY) in Bangkok timezone
-      const displayDate = new Date(`${dateStr}T00:00:00+07:00`);
-      const reportDateStr = displayDate.toLocaleDateString('th-TH', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        timeZone: 'Asia/Bangkok',
-      });
-
-      reportsList.push({
-        userId,
-        title,
-        date: reportDateStr,
-        summary,
-        base64Image: imageReport?.base64Image || null,
-      });
     }
 
-    // Sort reportsList chronologically so that slides follow calendar order
-    reportsList.sort((a, b) => {
-      // Parse DD/MM/YYYY to date objects
-      const parseDate = (dStr: string) => {
-        const [d, m, y] = dStr.split('/').map(Number);
-        return new Date(y - 543, m - 1, d); // Convert Buddhist era back to AD
-      };
-      return parseDate(a.date).getTime() - parseDate(b.date).getTime();
-    });
+    // Sort all slide entries chronologically across the week
+    reportsList.sort((a, b) => a.sortTimestamp - b.sortTimestamp);
 
     return NextResponse.json({
       date: thaiWeekRange,
