@@ -168,6 +168,7 @@ class handler(BaseHTTPRequestHandler):
                         shape.text_frame.text = report.get('date', report_date)
                         p = shape.text_frame.paragraphs[0]
                         disable_bullets(p) # Completely disable bullet points on date
+                        p.alignment = 3 # Right align
                         if len(p.runs) > 0:
                             run = p.runs[0]
                             run.font.name = "TH Sarabun New"

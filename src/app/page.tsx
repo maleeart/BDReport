@@ -11,6 +11,8 @@ interface Report {
   base64Images?: string[];
 }
 
+const DEFAULT_KEYWORDS = ['งาน', 'ใบงาน', 'ซ่อม', 'ใบแจ้งซ่อม', 'เลขที่'];
+
 // Helper to get current YYYY-Www ISO week string from a Date object in browser
 function getISOWeekString(date: Date): string {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
@@ -28,6 +30,10 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [thaiWeekRange, setThaiWeekRange] = useState<string>('');
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
+  
+  // Filtering States
+  const [selectedKeywords, setSelectedKeywords] = useState<string[]>(DEFAULT_KEYWORDS);
+  const [customKeywordInput, setCustomKeywordInput] = useState<string>('');
 
   // Set default week to current week on mount
   useEffect(() => {
@@ -48,13 +54,9 @@ export default function Dashboard() {
       const fetchedReports = data.reports || [];
       setReports(fetchedReports);
       setThaiWeekRange(data.date || '');
-      
-      // Select all reports by default
-      setSelectedIndices(new Set(fetchedReports.map((_: any, idx: number) => idx)));
     } catch (err: any) {
       setError(err.message || 'เกิดข้อผิดพลาดในการโหลดข้อมูล');
       setReports([]);
-      setSelectedIndices(new Set());
     } finally {
       setLoading(false);
     }
@@ -65,6 +67,55 @@ export default function Dashboard() {
       fetchReports(selectedWeek);
     }
   }, [selectedWeek]);
+
+  // Helper to filter reports list based on active keywords
+  const getFilteredReports = (): Report[] => {
+    const activeKeywords = [...selectedKeywords];
+    if (customKeywordInput.trim()) {
+      customKeywordInput.split(',').forEach(kw => {
+        const clean = kw.trim();
+        if (clean && !activeKeywords.includes(clean)) {
+          activeKeywords.push(clean);
+        }
+      });
+    }
+
+    if (activeKeywords.length === 0) {
+      return reports; // If no keyword filter is configured, show everything
+    }
+
+    return reports.filter(report => {
+      // Check if it is an image-only or empty report
+      const hasText = report.summary && report.summary.some(line => 
+        line !== 'ส่งเฉพาะรูปภาพประกอบ' && line !== 'ไม่มีรายงานข้อความ'
+      );
+      if (!hasText) {
+        return true; // Keep image-only reports
+      }
+
+      // Check if title or any summary line contains at least one of the active keywords
+      const titleMatches = activeKeywords.some(kw => 
+        report.title.toLowerCase().includes(kw.toLowerCase())
+      );
+      const summaryMatches = report.summary.some(line => 
+        activeKeywords.some(kw => line.toLowerCase().includes(kw.toLowerCase()))
+      );
+
+      return titleMatches || summaryMatches;
+    });
+  };
+
+  const filteredReports = getFilteredReports();
+
+  // Dynamically update selected indices when reports or keyword filters change
+  useEffect(() => {
+    const visibleIndices = new Set(
+      filteredReports
+        .map(r => reports.indexOf(r))
+        .filter(idx => idx !== -1)
+    );
+    setSelectedIndices(visibleIndices);
+  }, [reports, selectedKeywords, customKeywordInput]);
 
   const handleToggleSelect = (idx: number) => {
     const newSet = new Set(selectedIndices);
@@ -77,11 +128,22 @@ export default function Dashboard() {
   };
 
   const handleSelectAll = () => {
-    setSelectedIndices(new Set(reports.map((_, idx) => idx)));
+    const visibleIndices = filteredReports
+      .map(r => reports.indexOf(r))
+      .filter(idx => idx !== -1);
+    setSelectedIndices(new Set(visibleIndices));
   };
 
   const handleDeselectAll = () => {
     setSelectedIndices(new Set());
+  };
+
+  const handleToggleKeyword = (kw: string) => {
+    if (selectedKeywords.includes(kw)) {
+      setSelectedKeywords(selectedKeywords.filter(k => k !== kw));
+    } else {
+      setSelectedKeywords([...selectedKeywords, kw]);
+    }
   };
 
   const handleDownload = () => {
@@ -131,10 +193,44 @@ export default function Dashboard() {
                 cursor: selectedIndices.size === 0 ? 'not-allowed' : 'pointer',
               }}
             >
-              📊 สร้างรายงาน PowerPoint ({selectedIndices.size}/{reports.length})
+              📊 สร้างรายงาน PowerPoint ({selectedIndices.size}/{filteredReports.length})
             </button>
           </div>
         </section>
+
+        {/* Filter Keywords Section */}
+        {!loading && reports.length > 0 && (
+          <section style={styles.filterCard}>
+            <h3 style={styles.filterTitle}>🔍 กรองข้อมูลรายงานจากคำสำคัญ:</h3>
+            <div style={styles.keywordsRow}>
+              {DEFAULT_KEYWORDS.map(kw => (
+                <label key={kw} style={styles.keywordLabel}>
+                  <input
+                    type="checkbox"
+                    checked={selectedKeywords.includes(kw)}
+                    onChange={() => handleToggleKeyword(kw)}
+                    style={styles.keywordCheckbox}
+                  />
+                  {kw}
+                </label>
+              ))}
+            </div>
+            
+            <div style={styles.customKeywordGroup}>
+              <label style={styles.customKeywordLabel} htmlFor="custom-keywords">
+                คำสำคัญเพิ่มเติม (แยกด้วยเครื่องหมายจุลภาค , เช่น ซ่อมบำรุง, ติดตั้ง):
+              </label>
+              <input
+                id="custom-keywords"
+                type="text"
+                value={customKeywordInput}
+                onChange={(e) => setCustomKeywordInput(e.target.value)}
+                placeholder="พิมพ์คำค้นหาเพิ่มเติม..."
+                style={styles.customKeywordInput}
+              />
+            </div>
+          </section>
+        )}
 
         {/* Date Indicator and Select Actions */}
         {thaiWeekRange && (
@@ -143,7 +239,7 @@ export default function Dashboard() {
               <span>📅 รายงานประจำสัปดาห์: </span>
               <strong style={styles.dateHighlight}>{thaiWeekRange}</strong>
             </div>
-            {reports.length > 0 && (
+            {filteredReports.length > 0 && (
               <div style={styles.bulkActions}>
                 <button onClick={handleSelectAll} style={styles.linkButton}>เลือกทั้งหมด</button>
                 <span style={{ color: '#475569' }}>|</span>
@@ -175,73 +271,85 @@ export default function Dashboard() {
           </div>
         )}
 
-        {!loading && reports.length > 0 && (
+        {!loading && reports.length > 0 && filteredReports.length === 0 && (
+          <div style={styles.emptyCard}>
+            <p style={{ fontSize: '1.2rem', marginBottom: '8px' }}>🔍 ไม่พบข้อมูลที่ตรงกับคำสำคัญที่คุณกรอง</p>
+            <p style={{ color: '#9CA3AF', fontSize: '0.9rem' }}>ลองเลือกคำสำคัญเพิ่ม หรือติ๊กเลือกคำสำคัญเดิมกลับคืนมา</p>
+          </div>
+        )}
+
+        {!loading && filteredReports.length > 0 && (
           <div style={styles.reportsGrid}>
-            {reports.map((report, rIdx) => (
-              <article 
-                key={rIdx} 
-                style={{
-                  ...styles.reportCard,
-                  borderColor: selectedIndices.has(rIdx) ? '#8B5CF6' : 'rgba(255, 255, 255, 0.05)',
-                  opacity: selectedIndices.has(rIdx) ? 1 : 0.6,
-                }}
-              >
-                <div style={styles.reportHeader}>
-                  <div style={styles.headerLeft}>
-                    <input
-                      type="checkbox"
-                      checked={selectedIndices.has(rIdx)}
-                      onChange={() => handleToggleSelect(rIdx)}
-                      style={styles.checkbox}
-                    />
-                    <div style={styles.userBadge}>
-                      User ID: {report.userId.substring(0, 8)}...
+            {filteredReports.map((report) => {
+              const originalIndex = reports.indexOf(report);
+              const isSelected = selectedIndices.has(originalIndex);
+              
+              return (
+                <article 
+                  key={originalIndex} 
+                  style={{
+                    ...styles.reportCard,
+                    borderColor: isSelected ? '#8B5CF6' : 'rgba(255, 255, 255, 0.05)',
+                    opacity: isSelected ? 1 : 0.6,
+                  }}
+                >
+                  <div style={styles.reportHeader}>
+                    <div style={styles.headerLeft}>
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => handleToggleSelect(originalIndex)}
+                        style={styles.checkbox}
+                      />
+                      <div style={styles.userBadge}>
+                        User ID: {report.userId.substring(0, 8)}...
+                      </div>
+                    </div>
+                    <span style={styles.reportTime}>📅 วันที่ {report.date}</span>
+                  </div>
+
+                  <h3 style={styles.reportTitle}>{report.title}</h3>
+
+                  <div style={styles.cardContent}>
+                    <div style={styles.textSection}>
+                      <h4 style={styles.sectionLabel}>📝 รายละเอียดงาน:</h4>
+                      <ul style={styles.list}>
+                        {report.summary.map((task, idx) => (
+                          <li key={idx} style={styles.listItem}>{task}</li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div style={styles.imageSection}>
+                      <h4 style={styles.sectionLabel}>🖼️ รูปภาพประกอบ:</h4>
+                      {report.base64Images && report.base64Images.length > 0 ? (
+                        <div style={styles.imagesGrid}>
+                          {report.base64Images.map((img, idx) => (
+                            <div key={idx} style={styles.imageWrapper}>
+                              <img
+                                src={img}
+                                alt={`ภาพประกอบ ${idx + 1}`}
+                                style={styles.image}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      ) : report.base64Image ? (
+                        <div style={styles.imageWrapper}>
+                          <img
+                            src={report.base64Image}
+                            alt="ภาพประกอบรายงาน"
+                            style={styles.image}
+                          />
+                        </div>
+                      ) : (
+                        <div style={styles.noImage}>ไม่มีรูปถ่ายแนบมาด้วย</div>
+                      )}
                     </div>
                   </div>
-                  <span style={styles.reportTime}>📅 วันที่ {report.date}</span>
-                </div>
-
-                <h3 style={styles.reportTitle}>{report.title}</h3>
-
-                <div style={styles.cardContent}>
-                  <div style={styles.textSection}>
-                    <h4 style={styles.sectionLabel}>📝 รายละเอียดงาน:</h4>
-                    <ul style={styles.list}>
-                      {report.summary.map((task, idx) => (
-                        <li key={idx} style={styles.listItem}>{task}</li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div style={styles.imageSection}>
-                    <h4 style={styles.sectionLabel}>🖼️ รูปภาพประกอบ:</h4>
-                    {report.base64Images && report.base64Images.length > 0 ? (
-                      <div style={styles.imagesGrid}>
-                        {report.base64Images.map((img, idx) => (
-                          <div key={idx} style={styles.imageWrapper}>
-                            <img
-                              src={img}
-                              alt={`ภาพประกอบ ${idx + 1}`}
-                              style={styles.image}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    ) : report.base64Image ? (
-                      <div style={styles.imageWrapper}>
-                        <img
-                          src={report.base64Image}
-                          alt="ภาพประกอบรายงาน"
-                          style={styles.image}
-                        />
-                      </div>
-                    ) : (
-                      <div style={styles.noImage}>ไม่มีรูปถ่ายแนบมาด้วย</div>
-                    )}
-                  </div>
-                </div>
-              </article>
-            ))}
+                </article>
+              );
+            })}
           </div>
         )}
       </main>
@@ -317,7 +425,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '20px',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: '30px',
+    marginBottom: '20px',
     boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3)',
   },
   controlGroup: {
@@ -367,6 +475,66 @@ const styles: Record<string, React.CSSProperties> = {
     boxShadow: '0 4px 14px rgba(139, 92, 246, 0.3)',
     transition: 'all 0.2s',
   },
+  filterCard: {
+    background: 'rgba(30, 41, 59, 0.4)',
+    border: '1px solid rgba(255, 255, 255, 0.05)',
+    borderRadius: '16px',
+    padding: '20px 24px',
+    marginBottom: '24px',
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+  },
+  filterTitle: {
+    fontSize: '1rem',
+    fontWeight: 600,
+    color: '#E2E8F0',
+    marginBottom: '14px',
+  },
+  keywordsRow: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '16px',
+    marginBottom: '16px',
+  },
+  keywordLabel: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    fontSize: '0.95rem',
+    color: '#E2E8F0',
+    cursor: 'pointer',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    padding: '6px 14px',
+    borderRadius: '20px',
+    border: '1px solid rgba(255, 255, 255, 0.05)',
+    transition: 'all 0.2s',
+  },
+  keywordCheckbox: {
+    width: '16px',
+    height: '16px',
+    accentColor: '#8B5CF6',
+    cursor: 'pointer',
+  },
+  customKeywordGroup: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+  },
+  customKeywordLabel: {
+    fontSize: '0.9rem',
+    color: '#94A3B8',
+  },
+  customKeywordInput: {
+    backgroundColor: '#0F172A',
+    border: '1.5px solid #475569',
+    borderRadius: '8px',
+    color: '#F8FAFC',
+    padding: '10px 14px',
+    fontSize: '0.95rem',
+    outline: 'none',
+    width: '100%',
+    maxWidth: '500px',
+    transition: 'border-color 0.2s',
+  },
   metaRow: {
     display: 'flex',
     justifyContent: 'space-between',
@@ -393,7 +561,7 @@ const styles: Record<string, React.CSSProperties> = {
   linkButton: {
     backgroundColor: 'transparent',
     border: 'none',
-    color: '#3b82f6',
+    color: '#60A5FA',
     cursor: 'pointer',
     fontSize: '0.9rem',
     fontWeight: 600,
@@ -480,13 +648,13 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: '20px',
     borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
     paddingBottom: '10px',
-    paddingLeft: '32px', // Align with badge offset due to checkbox
+    paddingLeft: '32px',
   },
   cardContent: {
     display: 'flex',
     flexWrap: 'wrap',
     gap: '24px',
-    paddingLeft: '32px', // Align with content offset due to checkbox
+    paddingLeft: '32px',
   },
   textSection: {
     flex: '2 1 400px',
