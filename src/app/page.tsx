@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 
 interface Report {
   userId: string;
+  displayName?: string;
   title: string;
   date: string;
   time?: string;
@@ -338,7 +339,7 @@ export default function Dashboard() {
                         style={styles.checkbox}
                       />
                       <div style={styles.userBadge}>
-                        User ID: {report.userId.substring(0, 8)}...
+                        ผู้รายงาน: {report.displayName || `ผู้ใช้ LINE (${report.userId.substring(0, 6)})`}
                       </div>
                     </div>
                     <span style={styles.reportTime}>

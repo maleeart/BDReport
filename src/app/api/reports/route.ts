@@ -3,6 +3,23 @@ import { db } from '@/lib/firebaseAdmin';
 
 export const dynamic = 'force-dynamic';
 
+async function getLineUserProfile(userId: string, accessToken: string): Promise<string | null> {
+  try {
+    const res = await fetch(`https://api.line.me/v2/bot/profile/${userId}`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data.displayName || null;
+    }
+  } catch (err) {
+    console.error(`Error fetching profile for ${userId}:`, err);
+  }
+  return null;
+}
+
 // Helper to get YYYY-Www ISO week string from a Date object
 function getISOWeekString(date: Date): string {
   const target = new Date(date.valueOf());
@@ -106,6 +123,40 @@ export async function GET(req: NextRequest) {
     });
 
     const reportsList: any[] = [];
+    const userNamesMap: Record<string, string> = {};
+    const userIds = Object.keys(userReportsMap);
+    const accessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN || '';
+
+    if (userIds.length > 0) {
+      await Promise.all(
+        userIds.map(async (userId) => {
+          if (userId === 'unknown') {
+            userNamesMap[userId] = 'ผู้ใช้นิรนาม';
+            return;
+          }
+          try {
+            const profileDoc = await db.collection('line_profiles').doc(userId).get();
+            const profileData = profileDoc.data();
+            if (profileDoc.exists && profileData) {
+              userNamesMap[userId] = profileData.displayName;
+            } else {
+              let displayName = `ผู้ใช้ LINE (${userId.substring(0, 6)})`;
+              if (accessToken) {
+                const fetchedName = await getLineUserProfile(userId, accessToken);
+                if (fetchedName) {
+                  displayName = fetchedName;
+                  await db.collection('line_profiles').doc(userId).set({ displayName });
+                }
+              }
+              userNamesMap[userId] = displayName;
+            }
+          } catch (err) {
+            console.error(`Error fetching line profile:`, err);
+            userNamesMap[userId] = `ผู้ใช้ LINE (${userId.substring(0, 6)})`;
+          }
+        })
+      );
+    }
 
     // For each user, cluster their messages into separate "tasks" based on a 1-minute (60,000 ms) window
     for (const [userId, reports] of Object.entries(userReportsMap)) {
@@ -180,6 +231,7 @@ export async function GET(req: NextRequest) {
 
         reportsList.push({
           userId,
+          displayName: userNamesMap[userId] || `ผู้ใช้ LINE (${userId.substring(0, 6)})`,
           title,
           date: reportDateStr,
           time: reportTimeStr,
