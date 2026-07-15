@@ -126,21 +126,8 @@ export async function GET(req: NextRequest) {
           if (timeDiff <= 60000) { // Proximity within 1 minute
             currentGroup.push(report);
           } else {
-            // Time difference is > 1 minute
-            if (report.type === 'image') {
-              // Merge late image-only upload into the latest/previous task group of this user
-              if (currentGroup.length > 0) {
-                currentGroup.push(report);
-              } else if (taskGroups.length > 0) {
-                taskGroups[taskGroups.length - 1].push(report);
-              } else {
-                currentGroup = [report];
-              }
-            } else {
-              // Text message starts a new task group
-              taskGroups.push(currentGroup);
-              currentGroup = [report];
-            }
+            taskGroups.push(currentGroup);
+            currentGroup = [report];
           }
         }
       }
@@ -167,7 +154,7 @@ export async function GET(req: NextRequest) {
           .filter(Boolean);
 
         if (summary.length === 0) {
-          summary = base64Images.length > 0 ? ['ส่งเฉพาะรูปภาพประกอบ'] : ['ไม่มีรายงานข้อความ'];
+          summary = base64Images.length > 0 ? ['ไม่มีข้อความประกอบ'] : ['ไม่มีรายงานข้อความ'];
         }
 
         let title = base64Images.length > 0 ? 'รายงานผลการดำเนินงานประจำสัปดาห์' : 'ไม่มีรายงานข้อความ';

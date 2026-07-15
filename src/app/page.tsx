@@ -89,6 +89,7 @@ export default function Dashboard() {
       // Exclude default placeholder strings
       const summaryMatches = report.summary.some(line => 
         line !== 'ส่งเฉพาะรูปภาพประกอบ' && 
+        line !== 'ไม่มีข้อความประกอบ' && 
         line !== 'ไม่มีรายงานข้อความ' &&
         activeKeywords.some(kw => line.toLowerCase().includes(kw.toLowerCase()))
       );
