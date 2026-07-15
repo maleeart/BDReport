@@ -26,11 +26,11 @@ class handler(BaseHTTPRequestHandler):
             date_param = query_params.get('date', [None])[0]
             
             # Default to today if date is not provided
-            # Standard ISO YYYY-MM-DD
+            # Standard ISO YYYY-MM-DD (adjusted to Bangkok timezone UTC+7)
             if not date_param:
-                # We can import datetime
-                from datetime import datetime
-                date_param = datetime.utcnow().strftime('%Y-%m-%d')
+                from datetime import datetime, timedelta
+                local_now = datetime.utcnow() + timedelta(hours=7)
+                date_param = local_now.strftime('%Y-%m-%d')
 
             # 2. Check Authentication
             cron_secret = os.environ.get('CRON_SECRET')

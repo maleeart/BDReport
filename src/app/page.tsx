@@ -53,8 +53,8 @@ export default function Dashboard() {
   }, [selectedDate]);
 
   const handleDownload = () => {
-    // Open in new tab to trigger browser file download
-    window.open(`/api/cron/generate?secret=24052538&date=${selectedDate}`, '_blank');
+    // Open in new tab to trigger secure server-side proxy file download
+    window.open(`/api/download?date=${selectedDate}`, '_blank');
   };
 
   return (
