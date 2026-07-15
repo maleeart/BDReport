@@ -4,13 +4,17 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const weekParam = searchParams.get('week') || '';
+    const indicesParam = searchParams.get('indices') || '';
 
     const host = req.headers.get('host') || 'localhost:3000';
     const protocol = req.url.startsWith('https') ? 'https' : 'http';
     const cronSecret = process.env.CRON_SECRET || '';
 
     // Securely invoke /api/cron/generate on the server-side by appending the secret
-    const generateUrl = `${protocol}://${host}/api/cron/generate?secret=${cronSecret}&week=${weekParam}`;
+    let generateUrl = `${protocol}://${host}/api/cron/generate?secret=${cronSecret}&week=${weekParam}`;
+    if (indicesParam) {
+      generateUrl += `&indices=${indicesParam}`;
+    }
 
     const generateRes = await fetch(generateUrl);
     

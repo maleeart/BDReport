@@ -32,6 +32,7 @@ class handler(BaseHTTPRequestHandler):
             
             query_secret = query_params.get('secret', [None])[0]
             week_param = query_params.get('week', [None])[0]
+            indices_param = query_params.get('indices', [None])[0]
             
             # Default to current week if not provided (adjusted to Bangkok timezone UTC+7)
             if not week_param:
@@ -76,6 +77,15 @@ class handler(BaseHTTPRequestHandler):
             # If no reports, return JSON info
             reports = report_data.get('reports', [])
             report_date = report_data.get('date', '')
+            
+            # Filter reports by indices if parameter is specified
+            if indices_param is not None:
+                try:
+                    selected_indices = [int(x) for x in indices_param.split(',') if x.strip().isdigit()]
+                    reports = [reports[i] for i in selected_indices if i < len(reports)]
+                except Exception as filter_err:
+                    print(f"Error filtering reports by indices: {filter_err}")
+
             if not reports:
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json')
@@ -131,7 +141,7 @@ class handler(BaseHTTPRequestHandler):
                         if len(p.runs) > 0:
                             run = p.runs[0]
                             run.font.name = "TH Sarabun New"
-                            run.font.size = Pt(24) if is_main_title else Pt(12)
+                            run.font.size = Pt(32) if is_main_title else Pt(12)
                             run.font.bold = True
                             if src_run and src_run.font.color:
                                 try:
@@ -175,8 +185,8 @@ class handler(BaseHTTPRequestHandler):
                             # Apply unified premium Thai font settings
                             if len(p.runs) > 0:
                                 run = p.runs[0]
-                                run.font.name = src_run.font.name if (src_run and src_run.font.name) else "TH Sarabun New"
-                                run.font.size = src_run.font.size if (src_run and src_run.font.size) else Pt(16)
+                                run.font.name = "TH Sarabun New"
+                                run.font.size = Pt(24)
                                 if src_run:
                                     run.font.bold = src_run.font.bold
                                     if src_run.font.color:

@@ -27,6 +27,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [thaiWeekRange, setThaiWeekRange] = useState<string>('');
+  const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
 
   // Set default week to current week on mount
   useEffect(() => {
@@ -44,11 +45,16 @@ export default function Dashboard() {
         throw new Error('ไม่สามารถดึงข้อมูลรายงานได้');
       }
       const data = await res.json();
-      setReports(data.reports || []);
+      const fetchedReports = data.reports || [];
+      setReports(fetchedReports);
       setThaiWeekRange(data.date || '');
+      
+      // Select all reports by default
+      setSelectedIndices(new Set(fetchedReports.map((_: any, idx: number) => idx)));
     } catch (err: any) {
       setError(err.message || 'เกิดข้อผิดพลาดในการโหลดข้อมูล');
       setReports([]);
+      setSelectedIndices(new Set());
     } finally {
       setLoading(false);
     }
@@ -60,9 +66,28 @@ export default function Dashboard() {
     }
   }, [selectedWeek]);
 
+  const handleToggleSelect = (idx: number) => {
+    const newSet = new Set(selectedIndices);
+    if (newSet.has(idx)) {
+      newSet.delete(idx);
+    } else {
+      newSet.add(idx);
+    }
+    setSelectedIndices(newSet);
+  };
+
+  const handleSelectAll = () => {
+    setSelectedIndices(new Set(reports.map((_, idx) => idx)));
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedIndices(new Set());
+  };
+
   const handleDownload = () => {
+    const indicesStr = Array.from(selectedIndices).sort((a, b) => a - b).join(',');
     // Open in new tab to trigger secure server-side proxy file download
-    window.open(`/api/download?week=${selectedWeek}`, '_blank');
+    window.open(`/api/download?week=${selectedWeek}&indices=${indicesStr}`, '_blank');
   };
 
   return (
@@ -99,23 +124,32 @@ export default function Dashboard() {
             </button>
             <button
               onClick={handleDownload}
-              disabled={reports.length === 0}
+              disabled={selectedIndices.size === 0}
               style={{
                 ...styles.downloadButton,
-                opacity: reports.length === 0 ? 0.6 : 1,
-                cursor: reports.length === 0 ? 'not-allowed' : 'pointer',
+                opacity: selectedIndices.size === 0 ? 0.6 : 1,
+                cursor: selectedIndices.size === 0 ? 'not-allowed' : 'pointer',
               }}
             >
-              📊 สร้างรายงาน PowerPoint (.pptx)
+              📊 สร้างรายงาน PowerPoint ({selectedIndices.size}/{reports.length})
             </button>
           </div>
         </section>
 
-        {/* Date Indicator */}
+        {/* Date Indicator and Select Actions */}
         {thaiWeekRange && (
-          <div style={styles.dateHeader}>
-            <span>📅 รายงานประจำสัปดาห์: </span>
-            <strong style={styles.dateHighlight}>{thaiWeekRange}</strong>
+          <div style={styles.metaRow}>
+            <div style={styles.dateHeader}>
+              <span>📅 รายงานประจำสัปดาห์: </span>
+              <strong style={styles.dateHighlight}>{thaiWeekRange}</strong>
+            </div>
+            {reports.length > 0 && (
+              <div style={styles.bulkActions}>
+                <button onClick={handleSelectAll} style={styles.linkButton}>เลือกทั้งหมด</button>
+                <span style={{ color: '#475569' }}>|</span>
+                <button onClick={handleDeselectAll} style={styles.linkButton}>ล้างทั้งหมด</button>
+              </div>
+            )}
           </div>
         )}
 
@@ -144,10 +178,25 @@ export default function Dashboard() {
         {!loading && reports.length > 0 && (
           <div style={styles.reportsGrid}>
             {reports.map((report, rIdx) => (
-              <article key={rIdx} style={styles.reportCard}>
+              <article 
+                key={rIdx} 
+                style={{
+                  ...styles.reportCard,
+                  borderColor: selectedIndices.has(rIdx) ? '#8B5CF6' : 'rgba(255, 255, 255, 0.05)',
+                  opacity: selectedIndices.has(rIdx) ? 1 : 0.6,
+                }}
+              >
                 <div style={styles.reportHeader}>
-                  <div style={styles.userBadge}>
-                    User ID: {report.userId.substring(0, 8)}...
+                  <div style={styles.headerLeft}>
+                    <input
+                      type="checkbox"
+                      checked={selectedIndices.has(rIdx)}
+                      onChange={() => handleToggleSelect(rIdx)}
+                      style={styles.checkbox}
+                    />
+                    <div style={styles.userBadge}>
+                      User ID: {report.userId.substring(0, 8)}...
+                    </div>
                   </div>
                   <span style={styles.reportTime}>📅 วันที่ {report.date}</span>
                 </div>
@@ -318,9 +367,16 @@ const styles: Record<string, React.CSSProperties> = {
     boxShadow: '0 4px 14px rgba(139, 92, 246, 0.3)',
     transition: 'all 0.2s',
   },
+  metaRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '20px',
+    flexWrap: 'wrap',
+    gap: '12px',
+  },
   dateHeader: {
     fontSize: '1.1rem',
-    marginBottom: '20px',
     backgroundColor: 'rgba(139, 92, 246, 0.1)',
     borderLeft: '4px solid #8B5CF6',
     padding: '10px 16px',
@@ -328,6 +384,21 @@ const styles: Record<string, React.CSSProperties> = {
   },
   dateHighlight: {
     color: '#C084FC',
+  },
+  bulkActions: {
+    display: 'flex',
+    gap: '8px',
+    alignItems: 'center',
+  },
+  linkButton: {
+    backgroundColor: 'transparent',
+    border: 'none',
+    color: '#3b82f6',
+    cursor: 'pointer',
+    fontSize: '0.9rem',
+    fontWeight: 600,
+    textDecoration: 'underline',
+    padding: '4px 8px',
   },
   loadingContainer: {
     textAlign: 'center',
@@ -366,16 +437,28 @@ const styles: Record<string, React.CSSProperties> = {
   },
   reportCard: {
     background: 'rgba(30, 41, 59, 0.5)',
-    border: '1px solid rgba(255, 255, 255, 0.05)',
+    border: '2px solid rgba(255, 255, 255, 0.05)',
     borderRadius: '16px',
     padding: '24px',
     boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+    transition: 'all 0.2s',
   },
   reportHeader: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: '14px',
+  },
+  headerLeft: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  },
+  checkbox: {
+    width: '20px',
+    height: '20px',
+    accentColor: '#8B5CF6',
+    cursor: 'pointer',
   },
   userBadge: {
     backgroundColor: '#3b82f61a',
@@ -397,11 +480,13 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: '20px',
     borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
     paddingBottom: '10px',
+    paddingLeft: '32px', // Align with badge offset due to checkbox
   },
   cardContent: {
     display: 'flex',
     flexWrap: 'wrap',
     gap: '24px',
+    paddingLeft: '32px', // Align with content offset due to checkbox
   },
   textSection: {
     flex: '2 1 400px',
