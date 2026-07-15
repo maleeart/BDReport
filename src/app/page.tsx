@@ -23,7 +23,7 @@ interface Group {
   groupName: string;
 }
 
-const DEFAULT_KEYWORDS = ['งาน', 'ใบงาน', 'ซ่อม', 'ใบแจ้งซ่อม', 'เลขที่', 'เปลี่ยน', 'ตรวจ', 'สำรวจ'];
+const DEFAULT_KEYWORDS = ['งาน', 'ใบงาน', 'ซ่อม', 'ใบแจ้งซ่อม', 'เลขที่', 'เปลี่ยน', 'ตรวจ', 'สำรวจ', 'test', 'ทดสอบ'];
 
 // Helper to get current YYYY-Www ISO week string from a Date object in browser
 function getISOWeekString(date: Date): string {
