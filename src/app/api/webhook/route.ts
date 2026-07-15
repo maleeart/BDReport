@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { db, bucket } from '@/lib/firebaseAdmin';
+import { db } from '@/lib/firebaseAdmin';
 
 export async function POST(req: NextRequest) {
   try {
@@ -63,20 +63,14 @@ export async function POST(req: NextRequest) {
 
           const arrayBuffer = await lineRes.arrayBuffer();
           const buffer = Buffer.from(arrayBuffer);
+          const base64Image = `data:image/jpeg;base64,${buffer.toString('base64')}`;
 
-          // Upload to Firebase Storage
-          const storagePath = `reports/${message.id}.jpg`;
-          const file = bucket.file(storagePath);
-          await file.save(buffer, {
-            metadata: { contentType: 'image/jpeg' },
-          });
-
-          // Save to Firestore
+          // Save directly to Firestore
           await db.collection('line_reports').add({
             userId,
             type: 'image',
             messageId: message.id,
-            storagePath,
+            base64Image,
             timestamp,
             createdAt: new Date(),
           });

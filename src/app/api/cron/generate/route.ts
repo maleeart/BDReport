@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pptxgen from 'pptxgenjs';
-import { db, bucket } from '@/lib/firebaseAdmin';
+import { db } from '@/lib/firebaseAdmin';
 
 export async function GET(req: NextRequest) {
   try {
@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
       userId: string;
       summary: string[];
       highlight: string;
-      imagePath?: string;
+      base64Image?: string;
     }> = [];
 
     // 3. Summarize each user's reports using Gemini API
@@ -104,7 +104,7 @@ ${textReports}`;
         userId,
         summary,
         highlight,
-        imagePath: imageReport?.storagePath,
+        base64Image: imageReport?.base64Image,
       });
     }
 
@@ -190,31 +190,15 @@ ${textReports}`;
         fontFace: 'Arial',
       });
 
-      // Right Column: Image (if uploaded)
-      if (us.imagePath) {
-        try {
-          const file = bucket.file(us.imagePath);
-          const [buffer] = await file.download();
-          const imageBase64 = `data:image/jpeg;base64,${buffer.toString('base64')}`;
-
-          slide.addImage({
-            data: imageBase64,
-            x: 5.5,
-            y: 1.2,
-            w: 4.0,
-            h: 4.5,
-          });
-        } catch (err) {
-          console.error(`Failed to load image for user ${us.userId}`, err);
-          slide.addText('[Image load failed]', {
-            x: 5.5,
-            y: 3.0,
-            w: 4.0,
-            h: 1.0,
-            fontSize: 14,
-            color: 'EF4444',
-          });
-        }
+      // Right Column: Image (Base64)
+      if (us.base64Image) {
+        slide.addImage({
+          data: us.base64Image,
+          x: 5.5,
+          y: 1.2,
+          w: 4.0,
+          h: 4.5,
+        });
       } else {
         slide.addText('[No image uploaded today]', {
           x: 5.5,
@@ -227,20 +211,36 @@ ${textReports}`;
       }
     }
 
-    // 5. Save and upload back to storage
+    // 5. Generate PPTX buffer
     const dateStr = today.toISOString().split('T')[0];
     const data = await pptx.write({ outputType: 'nodebuffer' });
     const buffer = Buffer.from(data as any);
-    const storagePath = `slides/${dateStr}.pptx`;
-    const destinationFile = bucket.file(storagePath);
 
-    await destinationFile.save(buffer, {
-      metadata: { contentType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' },
-    });
+    // 6. Optional: Upload to Discord if Webhook is set
+    const discordUrl = process.env.DISCORD_WEBHOOK_URL;
+    if (discordUrl) {
+      try {
+        const formData = new FormData();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
+        formData.append('file', blob, `report-${dateStr}.pptx`);
+        formData.append('payload_json', JSON.stringify({
+          content: `📊 **BDReport Daily PowerPoint Generated**\nDate: ${dateStr}`
+        }));
+        await fetch(discordUrl, {
+          method: 'POST',
+          body: formData,
+        });
+      } catch (err) {
+        console.error('Failed to post to Discord webhook:', err);
+      }
+    }
 
-    return NextResponse.json({
-      status: 'success',
-      storagePath,
+    // 7. Return file download response
+    return new Response(buffer, {
+      headers: {
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'Content-Disposition': `attachment; filename="report-${dateStr}.pptx"`,
+      },
     });
   } catch (error: any) {
     console.error('PPTX generation error:', error);
