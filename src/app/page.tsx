@@ -10,34 +10,41 @@ interface Report {
   base64Image: string | null;
 }
 
+// Helper to get current YYYY-Www ISO week string from a Date object in browser
+function getISOWeekString(date: Date): string {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+}
+
 export default function Dashboard() {
-  const [selectedDate, setSelectedDate] = useState<string>('');
+  const [selectedWeek, setSelectedWeek] = useState<string>('');
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [thaiDate, setThaiDate] = useState<string>('');
+  const [thaiWeekRange, setThaiWeekRange] = useState<string>('');
 
-  // Set default date to today in local time zone YYYY-MM-DD
+  // Set default week to current week on mount
   useEffect(() => {
     const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-    setSelectedDate(`${year}-${month}-${day}`);
+    setSelectedWeek(getISOWeekString(today));
   }, []);
 
-  const fetchReports = async (dateStr: string) => {
-    if (!dateStr) return;
+  const fetchReports = async (weekStr: string) => {
+    if (!weekStr) return;
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/reports?date=${dateStr}`);
+      const res = await fetch(`/api/reports?week=${weekStr}`);
       if (!res.ok) {
         throw new Error('ไม่สามารถดึงข้อมูลรายงานได้');
       }
       const data = await res.json();
       setReports(data.reports || []);
-      setThaiDate(data.date || '');
+      setThaiWeekRange(data.date || '');
     } catch (err: any) {
       setError(err.message || 'เกิดข้อผิดพลาดในการโหลดข้อมูล');
       setReports([]);
@@ -47,14 +54,14 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    if (selectedDate) {
-      fetchReports(selectedDate);
+    if (selectedWeek) {
+      fetchReports(selectedWeek);
     }
-  }, [selectedDate]);
+  }, [selectedWeek]);
 
   const handleDownload = () => {
     // Open in new tab to trigger secure server-side proxy file download
-    window.open(`/api/download?date=${selectedDate}`, '_blank');
+    window.open(`/api/download?week=${selectedWeek}`, '_blank');
   };
 
   return (
@@ -64,26 +71,26 @@ export default function Dashboard() {
           <div style={styles.logoBadge}>BD</div>
           <h1 style={styles.logoText}>BDReport Control Panel</h1>
         </div>
-        <p style={styles.subtitle}>ระบบสรุปรายงานการปฏิบัติงานประจำวันอัตโนมัติ</p>
+        <p style={styles.subtitle}>ระบบสรุปรายงานการปฏิบัติงานประจำสัปดาห์อัตโนมัติ</p>
       </header>
 
       <main style={styles.main}>
         {/* Date Selector Section */}
         <section style={styles.controlCard}>
           <div style={styles.controlGroup}>
-            <label style={styles.label} htmlFor="date-picker">เลือกวันที่ดูรายงาน:</label>
+            <label style={styles.label} htmlFor="week-picker">เลือกสัปดาห์ที่ดูรายงาน:</label>
             <input
-              id="date-picker"
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
+              id="week-picker"
+              type="week"
+              value={selectedWeek}
+              onChange={(e) => setSelectedWeek(e.target.value)}
               style={styles.dateInput}
             />
           </div>
 
           <div style={styles.actionGroup}>
             <button
-              onClick={() => fetchReports(selectedDate)}
+              onClick={() => fetchReports(selectedWeek)}
               disabled={loading}
               style={styles.refreshButton}
             >
@@ -104,10 +111,10 @@ export default function Dashboard() {
         </section>
 
         {/* Date Indicator */}
-        {thaiDate && (
+        {thaiWeekRange && (
           <div style={styles.dateHeader}>
-            <span>📅 รายงานประจำวันที่: </span>
-            <strong style={styles.dateHighlight}>{thaiDate}</strong>
+            <span>📅 รายงานประจำสัปดาห์: </span>
+            <strong style={styles.dateHighlight}>{thaiWeekRange}</strong>
           </div>
         )}
 
@@ -128,7 +135,7 @@ export default function Dashboard() {
         {/* Reports List */}
         {!loading && !error && reports.length === 0 && (
           <div style={styles.emptyCard}>
-            <p style={{ fontSize: '1.2rem', marginBottom: '8px' }}>📭 ไม่พบรายงานของวันนี้</p>
+            <p style={{ fontSize: '1.2rem', marginBottom: '8px' }}>📭 ไม่พบรายงานของสัปดาห์นี้</p>
             <p style={{ color: '#9CA3AF', fontSize: '0.9rem' }}>สมาชิกในทีมยังไม่ได้ส่งรายงานผ่านแชทบอท LINE</p>
           </div>
         )}
@@ -141,14 +148,14 @@ export default function Dashboard() {
                   <div style={styles.userBadge}>
                     User ID: {report.userId.substring(0, 8)}...
                   </div>
-                  <span style={styles.reportTime}>🕒 {report.date}</span>
+                  <span style={styles.reportTime}>📅 สัปดาห์วันที่ {report.date}</span>
                 </div>
 
                 <h3 style={styles.reportTitle}>{report.title}</h3>
 
                 <div style={styles.cardContent}>
                   <div style={styles.textSection}>
-                    <h4 style={styles.sectionLabel}>📝 สรุปรายละเอียดงาน:</h4>
+                    <h4 style={styles.sectionLabel}>📝 สรุปรายละเอียดงานประจำสัปดาห์:</h4>
                     <ul style={styles.list}>
                       {report.summary.map((task, idx) => (
                         <li key={idx} style={styles.listItem}>{task}</li>

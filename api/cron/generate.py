@@ -30,14 +30,14 @@ class handler(BaseHTTPRequestHandler):
             query_params = urllib.parse.parse_qs(parsed_url.query)
             
             query_secret = query_params.get('secret', [None])[0]
-            date_param = query_params.get('date', [None])[0]
+            week_param = query_params.get('week', [None])[0]
             
-            # Default to today if date is not provided
-            # Standard ISO YYYY-MM-DD (adjusted to Bangkok timezone UTC+7)
-            if not date_param:
+            # Default to current week if not provided (adjusted to Bangkok timezone UTC+7)
+            if not week_param:
                 from datetime import datetime, timedelta
                 local_now = datetime.utcnow() + timedelta(hours=7)
-                date_param = local_now.strftime('%Y-%m-%d')
+                iso_year, iso_week, _ = local_now.isocalendar()
+                week_param = f"{iso_year}-W{iso_week:02d}"
 
             # 2. Check Authentication
             cron_secret = os.environ.get('CRON_SECRET')
@@ -56,9 +56,8 @@ class handler(BaseHTTPRequestHandler):
 
             # 3. Fetch Report Data from local Node.js API
             host = self.headers.get('Host', 'localhost:3000')
-            # Detect protocol from forwarded headers or host
             protocol = 'https' if 'https' in self.headers.get('X-Forwarded-Proto', '') else 'http'
-            reports_url = f"{protocol}://{host}/api/reports?date={date_param}"
+            reports_url = f"{protocol}://{host}/api/reports?week={week_param}"
 
             # Make request
             req = urllib.request.Request(reports_url)
@@ -200,7 +199,7 @@ class handler(BaseHTTPRequestHandler):
                     
                     # File field
                     payload.append(f'--{boundary}')
-                    payload.append(f'Content-Disposition: form-data; name="file"; filename="report-{date_param}.pptx"')
+                    payload.append(f'Content-Disposition: form-data; name="file"; filename="report-{week_param}.pptx"')
                     payload.append('Content-Type: application/vnd.openxmlformats-officedocument.presentationml.presentation')
                     payload.append('')
                     payload.append(pptx_bytes)
@@ -242,7 +241,7 @@ class handler(BaseHTTPRequestHandler):
             # 7. Send Response File
             self.send_response(200)
             self.send_header('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation')
-            self.send_header('Content-Disposition', f'attachment; filename="report-{date_param}.pptx"')
+            self.send_header('Content-Disposition', f'attachment; filename="report-{week_param}.pptx"')
             self.send_header('Content-Length', len(pptx_bytes))
             self.end_headers()
             self.wfile.write(pptx_bytes)
