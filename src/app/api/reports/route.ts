@@ -129,8 +129,9 @@ Do NOT wrap the output in markdown code blocks like \`\`\`json. Output raw JSON 
 Reports:
 ${textReports}`;
 
+        // Using v1beta endpoint to ensure broad support for models
         const geminiRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -157,6 +158,20 @@ ${textReports}`;
         } else {
           const errText = await geminiRes.text();
           console.error(`Gemini API error: ${geminiRes.statusText} - Response: ${errText}`);
+          
+          // Diagnostic helper: query ListModels to find available models for this API key
+          try {
+            const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${geminiApiKey}`);
+            if (listRes.ok) {
+              const listData = await listRes.json();
+              const availableModels = listData.models?.map((m: any) => m.name) || [];
+              console.log(`[Diagnostic] Available models for this API key:`, JSON.stringify(availableModels));
+            } else {
+              console.error(`[Diagnostic] ListModels failed: ${listRes.statusText}`);
+            }
+          } catch (listErr) {
+            console.error(`[Diagnostic] Failed to fetch available models:`, listErr);
+          }
         }
       }
 
