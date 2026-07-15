@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
 
-// Helper to format date in Thai: "15 กรกฎาคม 2569"
-function formatThaiDate(date: Date): string {
+// Helper to format date in Thai directly from YYYY-MM-DD string to avoid timezone shifts
+function formatThaiDate(dateStr: string): string {
+  const [year, month, day] = dateStr.split('-').map(Number);
   const months = [
     'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
     'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
   ];
-  const day = date.getDate();
-  const month = months[date.getMonth()];
-  const year = date.getFullYear() + 543; // Buddhist Era
-  return `${day} ${month} ${year}`;
+  const thYear = year + 543;
+  const thMonth = months[month - 1];
+  return `${day} ${thMonth} ${thYear}`;
 }
 
 export async function GET(req: NextRequest) {
@@ -37,11 +37,8 @@ export async function GET(req: NextRequest) {
       .where('createdAt', '<=', endDate)
       .get();
 
-    // Use the startDate (local Bangkok date representation) to format the Thai Date string
-    const targetDate = new Date(startDate.getTime());
-
     if (snapshot.empty) {
-      return NextResponse.json({ date: formatThaiDate(targetDate), reports: [] });
+      return NextResponse.json({ date: formatThaiDate(dateStr), reports: [] });
     }
 
     // Group by userId
@@ -109,11 +106,12 @@ ${textReports}`;
         }
       }
 
-      // Format date for the slide (e.g. DD/MM/YYYY)
-      const reportDateStr = targetDate.toLocaleDateString('th-TH', {
+      // Format date for the slide (e.g. DD/MM/YYYY) in Bangkok timezone
+      const reportDateStr = startDate.toLocaleDateString('th-TH', {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
+        timeZone: 'Asia/Bangkok',
       });
 
       reportsList.push({
@@ -126,7 +124,7 @@ ${textReports}`;
     }
 
     return NextResponse.json({
-      date: formatThaiDate(targetDate),
+      date: formatThaiDate(dateStr),
       reports: reportsList,
     });
   } catch (error: any) {
