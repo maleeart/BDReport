@@ -46,6 +46,10 @@ export default function Dashboard() {
   const [thaiWeekRange, setThaiWeekRange] = useState<string>('');
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   
+  // Theme State
+  const [darkMode, setDarkMode] = useState<boolean>(true);
+  const [toggleHovered, setToggleHovered] = useState<boolean>(false);
+
   // Filtering & Panel States
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>(DEFAULT_KEYWORDS);
   const [customKeywordInput, setCustomKeywordInput] = useState<string>('');
@@ -262,26 +266,53 @@ export default function Dashboard() {
     }));
   };
 
-  // Enterprise telemetry calculations
-  const totalSlides = filteredReports.length;
-  const totalImages = filteredReports.reduce((acc, curr) => acc + (curr.base64Images?.length || (curr.base64Image ? 1 : 0)), 0);
-  const activeContributors = Array.from(new Set(filteredReports.map(r => r.userId))).length;
+  // Get dynamic styles based on theme
+  const styles = getStyles(darkMode);
 
   return (
     <div style={styles.container}>
+      {/* Light / Dark Mode Toggle button */}
+      <button 
+        onClick={() => setDarkMode(!darkMode)} 
+        onMouseEnter={() => setToggleHovered(true)}
+        onMouseLeave={() => setToggleHovered(false)}
+        style={{
+          ...styles.themeToggleBtn,
+          opacity: toggleHovered ? 0.9 : 0.4,
+        }}
+        title={darkMode ? "สลับเป็นโหมดสว่าง" : "สลับเป็นโหมดมืด"}
+      >
+        {darkMode ? '☀️ Light Mode' : '🌙 Dark Mode'}
+      </button>
+
+      {/* 1. Top status bar: Bot status & Connected Group */}
+      <div style={styles.topStatusLine}>
+        <div style={styles.topStatusLeft}>
+          <span style={styles.topStatusLabel}>🔌 LINE Bot Status: </span>
+          <span style={styles.statusOnlineBadge}>● ONLINE</span>
+        </div>
+        <div style={styles.topStatusRight}>
+          <span style={styles.topStatusLabel}>💬 Connected LINE Group: </span>
+          <strong style={styles.groupNameHighlight}>
+            {groups.length > 0 ? groups[0].groupName : 'EGAT IOT'}
+          </strong>
+        </div>
+      </div>
+
+      {/* 2. Header: Logo, Title */}
       <header style={styles.header}>
         <div style={styles.logoContainer}>
           <img src="/bdreport_logo.jpg" alt="BDReport Logo" style={styles.logoImage} />
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-            <h1 style={styles.logoText}>BDReport Control Panel</h1>
-            <p style={styles.slogan}>Smart Maintenance, Seamless Reporting: Empowering EGAT Infrastructure</p>
+          <div style={styles.titleBlock}>
+            <div style={styles.titleEyebrow}>การไฟฟ้าฝ่ายผลิตแห่งประเทศไทย · กฟผ.</div>
+            <h1 style={styles.logoText}>ระบบสรุปรายงานการปฏิบัติงานประจำสัปดาห์</h1>
+            <div style={styles.titleTagline}>Smart Maintenance &nbsp;·&nbsp; Seamless Reporting &nbsp;·&nbsp; Empowering EGAT Infrastructure</div>
           </div>
         </div>
-        <p style={styles.subtitle}>ระบบสรุปรายงานการปฏิบัติงานประจำสัปดาห์อัตโนมัติ (แผนกบำรุงรักษาอาคารและบริเวณ) การไฟฟ้าฝ่ายผลิตแห่งประเทศไทย (กฟผ.)</p>
       </header>
 
       <main style={styles.main}>
-        {/* Date & Group Selector Section */}
+        {/* 3. Date & Group Selector Section (Moved Down Here) */}
         <section style={styles.controlCard}>
           <div style={styles.selectorsRow}>
             <div style={styles.controlGroup}>
@@ -352,32 +383,7 @@ export default function Dashboard() {
           </div>
         </section>
 
-        {/* Enterprise Telemetry Stats Bar */}
-        {!loading && reports.length > 0 && (
-          <section style={styles.statsBar}>
-            <div style={styles.statBox}>
-              <span style={styles.statLabel}>📊 สไลด์ผลงานสัปดาห์นี้</span>
-              <span style={styles.statVal}>{totalSlides} แผ่น</span>
-            </div>
-            <div style={styles.statDivider}></div>
-            <div style={styles.statBox}>
-              <span style={styles.statLabel}>🖼️ รูปภาพประกอบซ่อมบำรุง</span>
-              <span style={styles.statVal}>{totalImages} ภาพ</span>
-            </div>
-            <div style={styles.statDivider}></div>
-            <div style={styles.statBox}>
-              <span style={styles.statLabel}>👷 ช่างผู้ร่วมส่งรายงาน</span>
-              <span style={styles.statVal}>{activeContributors} ท่าน</span>
-            </div>
-            <div style={styles.statDivider}></div>
-            <div style={styles.statBox}>
-              <span style={styles.statLabel}>🔌 สถานะเชื่อมต่อ LINE Bot</span>
-              <span style={styles.statusOnlineBadge}>● ONLINE</span>
-            </div>
-          </section>
-        )}
-
-        {/* Collapsible Filter Keywords Section */}
+        {/* 4. Collapsible Filter Keywords Section */}
         {!loading && filteredReports.length > 0 && (
           <section style={styles.filterCard}>
             <div style={styles.filterHeader}>
@@ -478,18 +484,19 @@ export default function Dashboard() {
         {/* Reports List */}
         {!loading && !actionLoading && !error && reports.length === 0 && (
           <div style={styles.emptyCard}>
-            <p style={{ fontSize: '1.2rem', marginBottom: '8px' }}>📭 ไม่พบรายงานของสัปดาห์นี้</p>
-            <p style={{ color: '#94A3B8', fontSize: '0.9rem' }}>สมาชิกในทีมยังไม่ได้ส่งรายงานผ่านแชทบอท LINE</p>
+            <p style={{ fontSize: '1.2rem', marginBottom: '8px' }}>📭 ไม่พบรายงานของสัปญหาดนี้</p>
+            <p style={{ color: styles.emptyCardSubText?.color || '#94A3B8', fontSize: '0.9rem' }}>สมาชิกในทีมยังไม่ได้ส่งรายงานผ่านแชทบอท LINE</p>
           </div>
         )}
 
         {!loading && !actionLoading && reports.length > 0 && filteredReports.length === 0 && (
           <div style={styles.emptyCard}>
             <p style={{ fontSize: '1.2rem', marginBottom: '8px' }}>🔍 ไม่พบข้อมูลที่ตรงกับคำสำคัญที่คุณเลือก</p>
-            <p style={{ color: '#94A3B8', fontSize: '0.9rem' }}>ลองคลิกปรับแต่งตัวกรองด้านบนเพื่อตั้งค่าคำค้นหาใหม่</p>
+            <p style={{ color: styles.emptyCardSubText?.color || '#94A3B8', fontSize: '0.9rem' }}>ลองคลิกปรับแต่งตัวกรองด้านบนเพื่อตั้งค่าคำค้นหาใหม่</p>
           </div>
         )}
 
+        {/* 5. Slides list */}
         {!loading && !actionLoading && filteredReports.length > 0 && (
           <div style={styles.reportsGrid}>
             {filteredReports.map((report) => {
@@ -504,8 +511,10 @@ export default function Dashboard() {
                   key={originalIndex} 
                   style={{
                     ...styles.reportCard,
-                    borderColor: isSelected ? '#EAB308' : 'rgba(255, 255, 255, 0.05)',
+                    borderColor: isSelected ? '#EAB308' : styles.reportCardBorderColor?.borderColor,
                     opacity: isSelected ? 1 : 0.6,
+                    backgroundColor: styles.reportCardBg?.backgroundColor,
+                    boxShadow: styles.reportCardShadow?.boxShadow,
                   }}
                 >
                   <div style={styles.reportHeader}>
@@ -655,649 +664,700 @@ export default function Dashboard() {
   );
 }
 
-const styles: Record<string, React.CSSProperties> = {
-  container: {
-    backgroundColor: '#0F172A',
-    color: '#F8FAFC',
-    minHeight: '100vh',
-    display: 'flex',
-    flexDirection: 'column',
-    fontFamily: "'Inter', 'Segoe UI', Roboto, sans-serif",
-    padding: '40px 20px',
-  },
-  header: {
-    maxWidth: '1200px',
-    width: '100%',
-    margin: '0 auto 30px auto',
-    textAlign: 'center',
-  },
-  logoContainer: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '12px',
-    marginBottom: '8px',
-  },
-  logoImage: {
-    width: '60px',
-    height: '60px',
-    borderRadius: '12px',
-    border: '2px solid #EAB308',
-    boxShadow: '0 4px 15px rgba(234, 179, 8, 0.4)',
-    objectFit: 'cover',
-  },
-  slogan: {
-    color: '#E2E8F0',
-    fontSize: '0.85rem',
-    fontWeight: 600,
-    letterSpacing: '0.5px',
-    marginTop: '2px',
-    opacity: 0.8,
-  },
-  logoText: {
-    fontSize: '2.2rem',
-    fontWeight: 800,
-    background: 'linear-gradient(to right, #FBBF24, #F59E0B)',
-    WebkitBackgroundClip: 'text',
-    WebkitTextFillColor: 'transparent',
-  },
-  subtitle: {
-    color: '#94A3B8',
-    fontSize: '1rem',
-    marginTop: '6px',
-  },
-  statsBar: {
-    background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.8) 100%)',
-    backdropFilter: 'blur(10px)',
-    border: '1px solid rgba(255, 255, 255, 0.05)',
-    borderRadius: '12px',
-    padding: '16px 24px',
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: '20px',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    marginBottom: '24px',
-    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)',
-  },
-  statBox: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '4px',
-  },
-  statLabel: {
-    fontSize: '0.85rem',
-    color: '#94A3B8',
-    fontWeight: 500,
-  },
-  statVal: {
-    fontSize: '1.25rem',
-    fontWeight: 700,
-    color: '#FBBF24',
-  },
-  statDivider: {
-    width: '1px',
-    height: '32px',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    display: 'block',
-  },
-  statusOnlineBadge: {
-    fontSize: '0.9rem',
-    fontWeight: 700,
-    color: '#10B981',
-    textShadow: '0 0 10px rgba(16, 185, 129, 0.4)',
-  },
-  main: {
-    maxWidth: '1200px',
-    width: '100%',
-    margin: '0 auto',
-    flex: 1,
-  },
-  controlCard: {
-    background: 'rgba(30, 41, 59, 0.7)',
-    backdropFilter: 'blur(10px)',
-    border: '1px solid rgba(255, 255, 255, 0.05)',
-    borderRadius: '16px',
-    padding: '24px',
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: '20px',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: '20px',
-    boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3)',
-  },
-  selectorsRow: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: '24px',
-  },
-  controlGroup: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-  },
-  label: {
-    fontSize: '1rem',
-    fontWeight: 600,
-    color: '#E2E8F0',
-  },
-  dateInput: {
-    backgroundColor: '#0F172A',
-    border: '1.5px solid #475569',
-    borderRadius: '8px',
-    color: '#F8FAFC',
-    padding: '10px 14px',
-    fontSize: '0.95rem',
-    outline: 'none',
-    transition: 'border-color 0.2s',
-  },
-  selectInput: {
-    backgroundColor: '#0F172A',
-    border: '1.5px solid #475569',
-    borderRadius: '8px',
-    color: '#F8FAFC',
-    padding: '10px 14px',
-    fontSize: '0.95rem',
-    outline: 'none',
-    transition: 'border-color 0.2s',
-    cursor: 'pointer',
-  },
-  actionGroup: {
-    display: 'flex',
-    gap: '12px',
-    flexWrap: 'wrap',
-  },
-  refreshButton: {
-    backgroundColor: '#334155',
-    color: '#F8FAFC',
-    border: 'none',
-    borderRadius: '8px',
-    padding: '12px 20px',
-    fontSize: '0.95rem',
-    fontWeight: 600,
-    cursor: 'pointer',
-    transition: 'background-color 0.2s',
-  },
-  zipButton: {
-    backgroundColor: '#1E293B',
-    color: '#E2E8F0',
-    border: '1.5px solid #475569',
-    borderRadius: '8px',
-    padding: '12px 20px',
-    fontSize: '0.95rem',
-    fontWeight: 600,
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-  },
-  downloadButton: {
-    background: 'linear-gradient(135deg, #EAB308 0%, #D97706 100%)',
-    color: '#0F172A',
-    border: 'none',
-    borderRadius: '8px',
-    padding: '12px 24px',
-    fontSize: '0.95rem',
-    fontWeight: 700,
-    boxShadow: '0 4px 14px rgba(234, 179, 8, 0.3)',
-    transition: 'all 0.2s',
-  },
-  filterCard: {
-    background: 'rgba(30, 41, 59, 0.4)',
-    backdropFilter: 'blur(10px)',
-    border: '1px solid rgba(255, 255, 255, 0.05)',
-    borderRadius: '16px',
-    padding: '16px 24px',
-    marginBottom: '24px',
-    boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.1)',
-  },
-  filterHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: '12px',
-  },
-  filterHeaderLeft: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-  },
-  filterStatusText: {
-    fontSize: '0.95rem',
-    color: '#94A3B8',
-    fontWeight: 500,
-  },
-  toggleFilterButton: {
-    backgroundColor: '#1E293B',
-    color: '#E2E8F0',
-    border: '1.5px solid #475569',
-    borderRadius: '8px',
-    padding: '8px 16px',
-    fontSize: '0.85rem',
-    fontWeight: 600,
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-  },
-  filterContent: {
-    marginTop: '16px',
-    borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-    paddingTop: '16px',
-  },
-  filterSubHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '16px',
-    flexWrap: 'wrap',
-    gap: '12px',
-  },
-  filterHeaderActions: {
-    display: 'flex',
-    gap: '8px',
-    alignItems: 'center',
-  },
-  linkButtonSmall: {
-    backgroundColor: 'transparent',
-    border: 'none',
-    color: '#FBBF24',
-    cursor: 'pointer',
-    fontSize: '0.85rem',
-    fontWeight: 600,
-    textDecoration: 'underline',
-    padding: '2px 6px',
-  },
-  filterGrid: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: '24px',
-  },
-  filterColLeft: {
-    flex: '1 1 500px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '12px',
-  },
-  filterColRight: {
-    flex: '1 1 300px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '12px',
-  },
-  colLabel: {
-    fontSize: '1rem',
-    fontWeight: 700,
-    color: '#E2E8F0',
-    margin: 0,
-  },
-  colLabelSmall: {
-    fontSize: '0.9rem',
-    fontWeight: 600,
-    color: '#94A3B8',
-    margin: 0,
-  },
-  chipsContainer: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: '10px',
-  },
-  keywordChipActive: {
-    background: 'linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%)',
-    color: '#FFFFFF',
-    border: 'none',
-    padding: '8px 16px',
-    borderRadius: '20px',
-    cursor: 'pointer',
-    fontSize: '0.9rem',
-    fontWeight: 600,
-    boxShadow: '0 4px 10px rgba(30, 58, 138, 0.25)',
-    transition: 'all 0.2s',
-  },
-  keywordChipInactive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    color: '#94A3B8',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
-    padding: '8px 16px',
-    borderRadius: '20px',
-    cursor: 'pointer',
-    fontSize: '0.9rem',
-    fontWeight: 600,
-    transition: 'all 0.2s',
-  },
-  customKeywordInput: {
-    backgroundColor: '#0F172A',
-    border: '1.5px solid #475569',
-    borderRadius: '8px',
-    color: '#F8FAFC',
-    padding: '10px 14px',
-    fontSize: '0.95rem',
-    outline: 'none',
-    width: '100%',
-    transition: 'border-color 0.2s',
-  },
-  metaRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '20px',
-    flexWrap: 'wrap',
-    gap: '12px',
-  },
-  dateHeader: {
-    fontSize: '1.1rem',
-    backgroundColor: 'rgba(234, 179, 8, 0.1)',
-    borderLeft: '4px solid #EAB308',
-    padding: '10px 16px',
-    borderRadius: '0 8px 8px 0',
-  },
-  dateHighlight: {
-    color: '#FBBF24',
-  },
-  bulkActions: {
-    display: 'flex',
-    gap: '8px',
-    alignItems: 'center',
-  },
-  linkButton: {
-    backgroundColor: 'transparent',
-    border: 'none',
-    color: '#60A5FA',
-    cursor: 'pointer',
-    fontSize: '0.9rem',
-    fontWeight: 600,
-    textDecoration: 'underline',
-    padding: '4px 8px',
-  },
-  loadingContainer: {
-    textAlign: 'center',
-    padding: '60px 0',
-    color: '#94A3B8',
-  },
-  spinner: {
-    width: '40px',
-    height: '40px',
-    border: '4px solid rgba(255, 255, 255, 0.1)',
-    borderTop: '4px solid #EAB308',
-    borderRadius: '50%',
-    animation: 'spin 1s linear infinite',
-    margin: '0 auto 16px auto',
-  },
-  errorCard: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    border: '1px solid rgba(239, 68, 68, 0.3)',
-    color: '#FCA5A5',
-    borderRadius: '12px',
-    padding: '16px',
-    textAlign: 'center',
-    marginBottom: '30px',
-  },
-  emptyCard: {
-    background: 'rgba(30, 41, 59, 0.3)',
-    border: '1px dashed #475569',
-    borderRadius: '16px',
-    padding: '60px 20px',
-    textAlign: 'center',
-  },
-  reportsGrid: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '24px',
-  },
-  reportCard: {
-    background: 'rgba(30, 41, 59, 0.5)',
-    border: '2px solid rgba(255, 255, 255, 0.05)',
-    borderRadius: '16px',
-    padding: '24px',
-    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
-    transition: 'all 0.2s',
-  },
-  reportHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '14px',
-    flexWrap: 'wrap',
-    gap: '12px',
-  },
-  headerLeft: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    flexWrap: 'wrap',
-  },
-  checkbox: {
-    width: '20px',
-    height: '20px',
-    accentColor: '#EAB308',
-    cursor: 'pointer',
-  },
-  userBadge: {
-    backgroundColor: '#3b82f61a',
-    color: '#60A5FA',
-    border: '1px solid #3b82f633',
-    borderRadius: '9999px',
-    padding: '4px 12px',
-    fontSize: '0.85rem',
-    fontWeight: 600,
-  },
-  groupBadge: {
-    backgroundColor: 'rgba(234, 179, 8, 0.1)',
-    color: '#FBBF24',
-    border: '1px solid rgba(234, 179, 8, 0.2)',
-    borderRadius: '9999px',
-    padding: '4px 12px',
-    fontSize: '0.85rem',
-    fontWeight: 600,
-  },
-  editedBadge: {
-    backgroundColor: 'rgba(234, 179, 8, 0.15)',
-    color: '#FBBF24',
-    border: '1px solid rgba(234, 179, 8, 0.3)',
-    borderRadius: '9999px',
-    padding: '4px 12px',
-    fontSize: '0.85rem',
-    fontWeight: 600,
-  },
-  reportTime: {
-    color: '#94A3B8',
-    fontSize: '0.85rem',
-  },
-  reportTitle: {
-    fontSize: '1.4rem',
-    fontWeight: 700,
-    color: '#FFFFFF',
-    marginBottom: '20px',
-    borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-    paddingBottom: '10px',
-    paddingLeft: '32px',
-  },
-  cardContent: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: '24px',
-    paddingLeft: '32px',
-  },
-  textSection: {
-    flex: '2 1 400px',
-  },
-  textSectionHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '10px',
-    flexWrap: 'wrap',
-    gap: '10px',
-  },
-  sectionLabel: {
-    fontSize: '0.95rem',
-    fontWeight: 600,
-    color: '#94A3B8',
-    margin: 0,
-  },
-  editActions: {
-    display: 'flex',
-    gap: '8px',
-  },
-  editButton: {
-    backgroundColor: 'transparent',
-    border: 'none',
-    color: '#60A5FA',
-    cursor: 'pointer',
-    fontSize: '0.85rem',
-    fontWeight: 600,
-    textDecoration: 'underline',
-  },
-  originalToggleButton: {
-    backgroundColor: 'transparent',
-    border: 'none',
-    color: '#FBBF24',
-    cursor: 'pointer',
-    fontSize: '0.85rem',
-    fontWeight: 600,
-    textDecoration: 'underline',
-  },
-  revertButton: {
-    backgroundColor: 'transparent',
-    border: 'none',
-    color: '#F87171',
-    cursor: 'pointer',
-    fontSize: '0.85rem',
-    fontWeight: 600,
-    textDecoration: 'underline',
-  },
-  editingBlock: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '8px',
-    backgroundColor: 'rgba(30, 41, 59, 0.5)',
-    padding: '16px',
-    borderRadius: '8px',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
-  },
-  editingTip: {
-    fontSize: '0.8rem',
-    color: '#94A3B8',
-    margin: 0,
-  },
-  textarea: {
-    width: '100%',
-    backgroundColor: '#0F172A',
-    color: '#F8FAFC',
-    border: '1.5px solid #475569',
-    borderRadius: '8px',
-    padding: '10px',
-    fontSize: '0.95rem',
-    fontFamily: 'inherit',
-    outline: 'none',
-  },
-  editButtonGroup: {
-    display: 'flex',
-    gap: '10px',
-    justifyContent: 'flex-end',
-  },
-  saveBtn: {
-    backgroundColor: '#EAB308',
-    color: '#0F172A',
-    border: 'none',
-    borderRadius: '6px',
-    padding: '8px 16px',
-    fontSize: '0.9rem',
-    fontWeight: 700,
-    cursor: 'pointer',
-  },
-  cancelBtn: {
-    backgroundColor: 'transparent',
-    color: '#94A3B8',
-    border: '1px solid #475569',
-    borderRadius: '6px',
-    padding: '8px 16px',
-    fontSize: '0.9rem',
-    fontWeight: 600,
-    cursor: 'pointer',
-  },
-  list: {
-    listStyleType: 'none',
-    padding: 0,
-    margin: 0,
-  },
-  listItem: {
-    paddingLeft: '1.25rem',
-    position: 'relative',
-    marginBottom: '8px',
-    color: '#E2E8F0',
-    fontSize: '0.95rem',
-    lineHeight: '1.5',
-  },
-  originalSummaryBox: {
-    marginTop: '16px',
-    backgroundColor: 'rgba(15, 23, 42, 0.4)',
-    border: '1px dashed #475569',
-    borderRadius: '8px',
-    padding: '12px 16px',
-  },
-  originalSummaryHeader: {
-    fontSize: '0.85rem',
-    fontWeight: 600,
-    color: '#94A3B8',
-    marginBottom: '8px',
-  },
-  originalList: {
-    listStyleType: 'none',
-    padding: 0,
-    margin: 0,
-  },
-  originalListItem: {
-    paddingLeft: '1.25rem',
-    position: 'relative',
-    marginBottom: '6px',
-    color: '#94A3B8',
-    fontSize: '0.9rem',
-    lineHeight: '1.4',
-  },
-  imageSection: {
-    flex: '1 1 250px',
-    display: 'flex',
-    flexDirection: 'column',
-  },
-  imagesGrid: {
-    display: 'flex',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: '8px',
-  },
-  imageWrapper: {
-    borderRadius: '8px',
-    overflow: 'hidden',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
-    backgroundColor: '#0F172A',
-    flex: '1 1 100px',
-    maxWidth: '150px',
-    height: '100px',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  image: {
-    width: '100%',
-    height: 'auto',
-    maxHeight: '100px',
-    objectFit: 'contain',
-  },
-  noImage: {
-    border: '1px dashed #475569',
-    borderRadius: '8px',
-    height: '120px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    color: '#94A3B8',
-    fontSize: '0.9rem',
-    backgroundColor: 'rgba(15, 23, 42, 0.5)',
-  },
-  footer: {
-    marginTop: '50px',
-    textAlign: 'center',
-    color: '#64748B',
-    fontSize: '0.85rem',
-  },
-};
+// Function to generate dynamic styles
+function getStyles(darkMode: boolean): Record<string, React.CSSProperties> {
+  const theme = {
+    bg: darkMode ? '#0F172A' : '#F8FAFC',
+    text: darkMode ? '#F8FAFC' : '#0F172A',
+    textSecondary: darkMode ? '#94A3B8' : '#475569',
+    cardBg: darkMode ? 'rgba(30, 41, 59, 0.7)' : '#FFFFFF',
+    cardBorder: darkMode ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid rgba(0, 0, 0, 0.08)',
+    cardShadow: darkMode ? '0 8px 32px 0 rgba(0, 0, 0, 0.3)' : '0 4px 20px rgba(148, 163, 184, 0.15)',
+    inputBg: darkMode ? '#0F172A' : '#FFFFFF',
+    inputBorder: darkMode ? '#475569' : '#CBD5E1',
+    inputText: darkMode ? '#F8FAFC' : '#0F172A',
+    
+    reportCardBg: darkMode ? 'rgba(30, 41, 59, 0.5)' : '#FFFFFF',
+    reportCardBorderColor: darkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.08)',
+    reportCardShadow: darkMode ? '0 4px 20px rgba(0, 0, 0, 0.15)' : '0 4px 20px rgba(148, 163, 184, 0.08)',
+    originalBoxBg: darkMode ? 'rgba(15, 23, 42, 0.4)' : '#F1F5F9',
+    originalBoxBorder: darkMode ? '#475569' : '#94A3B8',
+    itemText: darkMode ? '#E2E8F0' : '#1E293B',
+  };
+
+  return {
+    container: {
+      backgroundColor: theme.bg,
+      color: theme.text,
+      minHeight: '100vh',
+      display: 'flex',
+      flexDirection: 'column',
+      fontFamily: "'Inter', 'Segoe UI', Roboto, sans-serif",
+      padding: '20px 20px 40px 20px',
+      position: 'relative',
+      transition: 'background-color 0.3s ease, color 0.3s ease',
+    },
+    themeToggleBtn: {
+      position: 'absolute',
+      top: '12px',
+      right: '20px',
+      backgroundColor: 'transparent',
+      border: 'none',
+      color: theme.textSecondary,
+      fontSize: '0.8rem',
+      fontWeight: 600,
+      cursor: 'pointer',
+      transition: 'opacity 0.2s',
+      zIndex: 100,
+    },
+    topStatusLine: {
+      background: darkMode ? 'rgba(30, 41, 59, 0.4)' : 'rgba(255, 255, 255, 0.85)',
+      border: theme.cardBorder,
+      borderRadius: '8px',
+      padding: '8px 16px',
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: '20px',
+      maxWidth: '1200px',
+      width: '100%',
+      margin: '0 auto 20px auto',
+      fontSize: '0.85rem',
+      boxShadow: theme.cardShadow,
+      transition: 'all 0.3s ease',
+    },
+    topStatusLeft: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '6px',
+    },
+    topStatusRight: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '6px',
+    },
+    topStatusLabel: {
+      color: theme.textSecondary,
+      fontWeight: 500,
+    },
+    groupNameHighlight: {
+      color: '#EAB308',
+      fontWeight: 700,
+    },
+    statusOnlineBadge: {
+      color: '#10B981',
+      fontWeight: 700,
+      textShadow: darkMode ? '0 0 10px rgba(16, 185, 129, 0.4)' : 'none',
+    },
+    header: {
+      maxWidth: '1200px',
+      width: '100%',
+      margin: '0 auto 30px auto',
+      textAlign: 'center',
+    },
+    logoContainer: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '20px',
+    },
+    logoImage: {
+      width: '72px',
+      height: '72px',
+      borderRadius: '14px',
+      border: darkMode ? '1.5px solid rgba(234, 179, 8, 0.5)' : '1.5px solid rgba(234, 179, 8, 0.6)',
+      boxShadow: darkMode ? '0 4px 20px rgba(234, 179, 8, 0.2)' : '0 4px 16px rgba(234, 179, 8, 0.15)',
+      objectFit: 'cover',
+      flexShrink: 0,
+    },
+    titleBlock: {
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'flex-start',
+      gap: '4px',
+    },
+    titleEyebrow: {
+      fontSize: '0.75rem',
+      fontWeight: 600,
+      letterSpacing: '0.12em',
+      textTransform: 'uppercase',
+      color: darkMode ? 'rgba(234, 179, 8, 0.7)' : 'rgba(180, 130, 0, 0.85)',
+    },
+    logoText: {
+      fontSize: '1.6rem',
+      fontWeight: 700,
+      color: theme.text,
+      margin: 0,
+      lineHeight: '1.25',
+      letterSpacing: '-0.02em',
+    },
+    titleTagline: {
+      fontSize: '0.78rem',
+      fontWeight: 400,
+      color: theme.textSecondary,
+      letterSpacing: '0.03em',
+      opacity: 0.8,
+    },
+    main: {
+      maxWidth: '1200px',
+      width: '100%',
+      margin: '0 auto',
+      flex: 1,
+    },
+    controlCard: {
+      background: theme.cardBg,
+      border: theme.cardBorder,
+      borderRadius: '16px',
+      padding: '24px',
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: '20px',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: '20px',
+      boxShadow: theme.cardShadow,
+      transition: 'all 0.3s ease',
+    },
+    selectorsRow: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: '24px',
+    },
+    controlGroup: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '12px',
+    },
+    label: {
+      fontSize: '1rem',
+      fontWeight: 600,
+      color: theme.text,
+    },
+    dateInput: {
+      backgroundColor: theme.inputBg,
+      border: `1.5px solid ${theme.inputBorder}`,
+      borderRadius: '8px',
+      color: theme.inputText,
+      padding: '10px 14px',
+      fontSize: '0.95rem',
+      outline: 'none',
+      transition: 'border-color 0.2s',
+    },
+    selectInput: {
+      backgroundColor: theme.inputBg,
+      border: `1.5px solid ${theme.inputBorder}`,
+      borderRadius: '8px',
+      color: theme.inputText,
+      padding: '10px 14px',
+      fontSize: '0.95rem',
+      outline: 'none',
+      transition: 'border-color 0.2s',
+      cursor: 'pointer',
+    },
+    actionGroup: {
+      display: 'flex',
+      gap: '12px',
+      flexWrap: 'wrap',
+    },
+    refreshButton: {
+      backgroundColor: darkMode ? '#334155' : '#E2E8F0',
+      color: theme.text,
+      border: 'none',
+      borderRadius: '8px',
+      padding: '12px 20px',
+      fontSize: '0.95rem',
+      fontWeight: 600,
+      cursor: 'pointer',
+      transition: 'background-color 0.2s',
+    },
+    zipButton: {
+      backgroundColor: darkMode ? '#1E293B' : '#FFFFFF',
+      color: theme.text,
+      border: `1.5px solid ${theme.inputBorder}`,
+      borderRadius: '8px',
+      padding: '12px 20px',
+      fontSize: '0.95rem',
+      fontWeight: 600,
+      cursor: 'pointer',
+      transition: 'all 0.2s',
+    },
+    downloadButton: {
+      background: 'linear-gradient(135deg, #EAB308 0%, #D97706 100%)',
+      color: '#0F172A',
+      border: 'none',
+      borderRadius: '8px',
+      padding: '12px 24px',
+      fontSize: '0.95rem',
+      fontWeight: 700,
+      boxShadow: '0 4px 14px rgba(234, 179, 8, 0.3)',
+      transition: 'all 0.2s',
+    },
+    filterCard: {
+      background: theme.cardBg,
+      border: theme.cardBorder,
+      borderRadius: '16px',
+      padding: '16px 24px',
+      marginBottom: '24px',
+      boxShadow: theme.cardShadow,
+      transition: 'all 0.3s ease',
+    },
+    filterHeader: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      flexWrap: 'wrap',
+      gap: '12px',
+    },
+    filterHeaderLeft: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+    },
+    filterStatusText: {
+      fontSize: '0.95rem',
+      color: theme.textSecondary,
+      fontWeight: 500,
+    },
+    toggleFilterButton: {
+      backgroundColor: darkMode ? '#1E293B' : '#E2E8F0',
+      color: theme.text,
+      border: `1.5px solid ${theme.inputBorder}`,
+      borderRadius: '8px',
+      padding: '8px 16px',
+      fontSize: '0.85rem',
+      fontWeight: 600,
+      cursor: 'pointer',
+      transition: 'all 0.2s',
+    },
+    filterContent: {
+      marginTop: '16px',
+      borderTop: darkMode ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
+      paddingTop: '16px',
+    },
+    filterSubHeader: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: '16px',
+      flexWrap: 'wrap',
+      gap: '12px',
+    },
+    filterHeaderActions: {
+      display: 'flex',
+      gap: '8px',
+      alignItems: 'center',
+    },
+    linkButtonSmall: {
+      backgroundColor: 'transparent',
+      border: 'none',
+      color: '#FBBF24',
+      cursor: 'pointer',
+      fontSize: '0.85rem',
+      fontWeight: 600,
+      textDecoration: 'underline',
+      padding: '2px 6px',
+    },
+    filterGrid: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: '24px',
+    },
+    filterColLeft: {
+      flex: '1 1 500px',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '12px',
+    },
+    filterColRight: {
+      flex: '1 1 300px',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '12px',
+    },
+    colLabel: {
+      fontSize: '1rem',
+      fontWeight: 700,
+      color: theme.text,
+      margin: 0,
+    },
+    colLabelSmall: {
+      fontSize: '0.9rem',
+      fontWeight: 600,
+      color: theme.textSecondary,
+      margin: 0,
+    },
+    chipsContainer: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: '10px',
+    },
+    keywordChipActive: {
+      background: 'linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%)',
+      color: '#FFFFFF',
+      border: 'none',
+      padding: '8px 16px',
+      borderRadius: '20px',
+      cursor: 'pointer',
+      fontSize: '0.9rem',
+      fontWeight: 600,
+      boxShadow: '0 4px 10px rgba(30, 58, 138, 0.25)',
+      transition: 'all 0.2s',
+    },
+    keywordChipInactive: {
+      backgroundColor: darkMode ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.03)',
+      color: theme.textSecondary,
+      border: darkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.08)',
+      padding: '8px 16px',
+      borderRadius: '20px',
+      cursor: 'pointer',
+      fontSize: '0.9rem',
+      fontWeight: 600,
+      transition: 'all 0.2s',
+    },
+    customKeywordInput: {
+      backgroundColor: theme.inputBg,
+      border: `1.5px solid ${theme.inputBorder}`,
+      borderRadius: '8px',
+      color: theme.inputText,
+      padding: '10px 14px',
+      fontSize: '0.95rem',
+      outline: 'none',
+      width: '100%',
+      transition: 'border-color 0.2s',
+    },
+    metaRow: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: '20px',
+      flexWrap: 'wrap',
+      gap: '12px',
+    },
+    dateHeader: {
+      fontSize: '1.1rem',
+      backgroundColor: darkMode ? 'rgba(234, 179, 8, 0.1)' : 'rgba(234, 179, 8, 0.15)',
+      borderLeft: '4px solid #EAB308',
+      padding: '10px 16px',
+      borderRadius: '0 8px 8px 0',
+    },
+    dateHighlight: {
+      color: '#EAB308',
+      fontWeight: 700,
+    },
+    bulkActions: {
+      display: 'flex',
+      gap: '8px',
+      alignItems: 'center',
+    },
+    linkButton: {
+      backgroundColor: 'transparent',
+      border: 'none',
+      color: darkMode ? '#60A5FA' : '#1D4ED8',
+      cursor: 'pointer',
+      fontSize: '0.9rem',
+      fontWeight: 600,
+      textDecoration: 'underline',
+      padding: '4px 8px',
+    },
+    loadingContainer: {
+      textAlign: 'center',
+      padding: '60px 0',
+      color: theme.textSecondary,
+    },
+    spinner: {
+      width: '40px',
+      height: '40px',
+      border: darkMode ? '4px solid rgba(255, 255, 255, 0.1)' : '4px solid rgba(0, 0, 0, 0.1)',
+      borderTop: '4px solid #EAB308',
+      borderRadius: '50%',
+      animation: 'spin 1s linear infinite',
+      margin: '0 auto 16px auto',
+    },
+    errorCard: {
+      backgroundColor: 'rgba(239, 68, 68, 0.15)',
+      border: '1px solid rgba(239, 68, 68, 0.3)',
+      color: '#FCA5A5',
+      borderRadius: '12px',
+      padding: '16px',
+      textAlign: 'center',
+      marginBottom: '30px',
+    },
+    emptyCard: {
+      background: theme.cardBg,
+      border: `1px dashed ${theme.inputBorder}`,
+      borderRadius: '16px',
+      padding: '60px 20px',
+      textAlign: 'center',
+      boxShadow: theme.cardShadow,
+    },
+    emptyCardSubText: {
+      color: theme.textSecondary,
+    },
+    reportsGrid: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '24px',
+    },
+    reportCard: {
+      // styles applied dynamically in render
+    },
+    reportCardBg: {
+      backgroundColor: theme.reportCardBg,
+    },
+    reportCardBorderColor: {
+      borderColor: theme.reportCardBorderColor,
+    },
+    reportCardShadow: {
+      boxShadow: theme.reportCardShadow,
+    },
+    reportHeader: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: '14px',
+      flexWrap: 'wrap',
+      gap: '12px',
+    },
+    headerLeft: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '12px',
+      flexWrap: 'wrap',
+    },
+    checkbox: {
+      width: '20px',
+      height: '20px',
+      accentColor: '#EAB308',
+      cursor: 'pointer',
+    },
+    userBadge: {
+      backgroundColor: darkMode ? '#3b82f61a' : 'rgba(59, 130, 246, 0.1)',
+      color: darkMode ? '#60A5FA' : '#1D4ED8',
+      border: darkMode ? '1px solid #3b82f633' : '1px solid rgba(59, 130, 246, 0.2)',
+      borderRadius: '9999px',
+      padding: '4px 12px',
+      fontSize: '0.85rem',
+      fontWeight: 600,
+    },
+    groupBadge: {
+      backgroundColor: 'rgba(234, 179, 8, 0.1)',
+      color: '#EAB308',
+      border: '1px solid rgba(234, 179, 8, 0.2)',
+      borderRadius: '9999px',
+      padding: '4px 12px',
+      fontSize: '0.85rem',
+      fontWeight: 600,
+    },
+    editedBadge: {
+      backgroundColor: 'rgba(234, 179, 8, 0.15)',
+      color: '#EAB308',
+      border: '1px solid rgba(234, 179, 8, 0.3)',
+      borderRadius: '9999px',
+      padding: '4px 12px',
+      fontSize: '0.85rem',
+      fontWeight: 600,
+    },
+    reportTime: {
+      color: theme.textSecondary,
+      fontSize: '0.85rem',
+    },
+    reportTitle: {
+      fontSize: '1.4rem',
+      fontWeight: 700,
+      color: theme.text,
+      marginBottom: '20px',
+      borderBottom: darkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.1)',
+      paddingBottom: '10px',
+      paddingLeft: '32px',
+    },
+    cardContent: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: '24px',
+      paddingLeft: '32px',
+    },
+    textSection: {
+      flex: '2 1 400px',
+    },
+    textSectionHeader: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: '10px',
+      flexWrap: 'wrap',
+      gap: '10px',
+    },
+    sectionLabel: {
+      fontSize: '0.95rem',
+      fontWeight: 600,
+      color: theme.textSecondary,
+      margin: 0,
+    },
+    editActions: {
+      display: 'flex',
+      gap: '8px',
+    },
+    editButton: {
+      backgroundColor: 'transparent',
+      border: 'none',
+      color: darkMode ? '#60A5FA' : '#1D4ED8',
+      cursor: 'pointer',
+      fontSize: '0.85rem',
+      fontWeight: 600,
+      textDecoration: 'underline',
+    },
+    originalToggleButton: {
+      backgroundColor: 'transparent',
+      border: 'none',
+      color: '#EAB308',
+      cursor: 'pointer',
+      fontSize: '0.85rem',
+      fontWeight: 600,
+      textDecoration: 'underline',
+    },
+    revertButton: {
+      backgroundColor: 'transparent',
+      border: 'none',
+      color: '#EF4444',
+      cursor: 'pointer',
+      fontSize: '0.85rem',
+      fontWeight: 600,
+      textDecoration: 'underline',
+    },
+    editingBlock: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '8px',
+      backgroundColor: darkMode ? 'rgba(30, 41, 59, 0.5)' : '#F8FAFC',
+      padding: '16px',
+      borderRadius: '8px',
+      border: darkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.1)',
+    },
+    editingTip: {
+      fontSize: '0.8rem',
+      color: theme.textSecondary,
+      margin: 0,
+    },
+    textarea: {
+      width: '100%',
+      backgroundColor: theme.inputBg,
+      color: theme.inputText,
+      border: `1.5px solid ${theme.inputBorder}`,
+      borderRadius: '8px',
+      padding: '10px',
+      fontSize: '0.95rem',
+      fontFamily: 'inherit',
+      outline: 'none',
+    },
+    editButtonGroup: {
+      display: 'flex',
+      gap: '10px',
+      justifyContent: 'flex-end',
+    },
+    saveBtn: {
+      backgroundColor: '#EAB308',
+      color: '#0F172A',
+      border: 'none',
+      borderRadius: '6px',
+      padding: '8px 16px',
+      fontSize: '0.9rem',
+      fontWeight: 700,
+      cursor: 'pointer',
+    },
+    cancelBtn: {
+      backgroundColor: 'transparent',
+      color: theme.textSecondary,
+      border: `1px solid ${theme.inputBorder}`,
+      borderRadius: '6px',
+      padding: '8px 16px',
+      fontSize: '0.9rem',
+      fontWeight: 600,
+      cursor: 'pointer',
+    },
+    list: {
+      listStyleType: 'none',
+      padding: 0,
+      margin: 0,
+    },
+    listItem: {
+      paddingLeft: '1.25rem',
+      position: 'relative',
+      marginBottom: '8px',
+      color: theme.itemText,
+      fontSize: '0.95rem',
+      lineHeight: '1.5',
+    },
+    originalSummaryBox: {
+      marginTop: '16px',
+      backgroundColor: theme.originalBoxBg,
+      border: `1px dashed ${theme.originalBoxBorder}`,
+      borderRadius: '8px',
+      padding: '12px 16px',
+    },
+    originalSummaryHeader: {
+      fontSize: '0.85rem',
+      fontWeight: 600,
+      color: theme.textSecondary,
+      marginBottom: '8px',
+    },
+    originalList: {
+      listStyleType: 'none',
+      padding: 0,
+      margin: 0,
+    },
+    originalListItem: {
+      paddingLeft: '1.25rem',
+      position: 'relative',
+      marginBottom: '6px',
+      color: theme.textSecondary,
+      fontSize: '0.9rem',
+      lineHeight: '1.4',
+    },
+    imageSection: {
+      flex: '1 1 250px',
+      display: 'flex',
+      flexDirection: 'column',
+    },
+    imagesGrid: {
+      display: 'flex',
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: '8px',
+    },
+    imageWrapper: {
+      borderRadius: '8px',
+      overflow: 'hidden',
+      border: darkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.08)',
+      backgroundColor: theme.inputBg,
+      flex: '1 1 100px',
+      maxWidth: '150px',
+      height: '100px',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    image: {
+      width: '100%',
+      height: 'auto',
+      maxHeight: '100px',
+      objectFit: 'contain',
+    },
+    noImage: {
+      border: `1px dashed ${theme.inputBorder}`,
+      borderRadius: '8px',
+      height: '120px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      color: theme.textSecondary,
+      fontSize: '0.9rem',
+      backgroundColor: darkMode ? 'rgba(15, 23, 42, 0.5)' : '#F1F5F9',
+    },
+    footer: {
+      marginTop: '50px',
+      textAlign: 'center',
+      color: theme.textSecondary,
+      fontSize: '0.85rem',
+    },
+  };
+}
