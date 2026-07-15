@@ -282,36 +282,35 @@ export default function Dashboard() {
         }}
         title={darkMode ? "สลับเป็นโหมดสว่าง" : "สลับเป็นโหมดมืด"}
       >
-        {darkMode ? '☀️ Light Mode' : '🌙 Dark Mode'}
+        {darkMode ? '☀️' : '🌙'}
       </button>
 
-      {/* 1. Top status bar: Bot status & Connected Group */}
-      <div style={styles.topStatusLine}>
-        <div style={styles.topStatusLeft}>
-          <span style={styles.topStatusLabel}>🔌 LINE Bot Status: </span>
-          <span style={styles.statusOnlineBadge}>● ONLINE</span>
-        </div>
-        <div style={styles.topStatusRight}>
-          <span style={styles.topStatusLabel}>💬 Connected LINE Group: </span>
-          <strong style={styles.groupNameHighlight}>
-            {groups.length > 0 ? groups[0].groupName : 'EGAT IOT'}
-          </strong>
-        </div>
-      </div>
-
-      {/* 2. Header: Logo, Title */}
+      {/* Header: Logo, Title */}
       <header style={styles.header}>
         <div style={styles.logoContainer}>
           <img src="/bdreport_logo.jpg" alt="BDReport Logo" style={styles.logoImage} />
           <div style={styles.titleBlock}>
             <div style={styles.titleEyebrow}>การไฟฟ้าฝ่ายผลิตแห่งประเทศไทย · กฟผ.</div>
             <h1 style={styles.logoText}>ระบบสรุปรายงานการปฏิบัติงานประจำสัปดาห์</h1>
-            <div style={styles.titleTagline}>Smart Maintenance &nbsp;·&nbsp; Seamless Reporting &nbsp;·&nbsp; Empowering EGAT Infrastructure</div>
+            <div style={styles.titleTagline}>Smart Maintenance · Seamless Reporting · Empowering EGAT Infrastructure</div>
           </div>
         </div>
       </header>
 
       <main style={styles.main}>
+        {/* Status bar: Bot status & Connected Group — sits just above the week selector */}
+        <div style={styles.topStatusLine}>
+          <div style={styles.topStatusLeft}>
+            <span style={styles.statusOnlineBadge}>●</span>
+            <span style={styles.topStatusLabel}>LINE Bot Online</span>
+          </div>
+          <div style={styles.topStatusRight}>
+            <span style={styles.topStatusLabel}>กลุ่ม:</span>
+            <strong style={styles.groupNameHighlight}>
+              {groups.length > 0 ? groups[0].groupName : 'EGAT IOT'}
+            </strong>
+          </div>
+        </div>
         {/* 3. Date & Group Selector Section (Moved Down Here) */}
         <section style={styles.controlCard}>
           <div style={styles.selectorsRow}>
@@ -693,56 +692,61 @@ function getStyles(darkMode: boolean): Record<string, React.CSSProperties> {
       display: 'flex',
       flexDirection: 'column',
       fontFamily: "'Inter', 'Segoe UI', Roboto, sans-serif",
-      padding: '20px 20px 40px 20px',
+      padding: '20px 16px 40px 16px',
       position: 'relative',
       transition: 'background-color 0.3s ease, color 0.3s ease',
     },
     themeToggleBtn: {
       position: 'absolute',
       top: '12px',
-      right: '20px',
+      right: '16px',
       backgroundColor: 'transparent',
       border: 'none',
       color: theme.textSecondary,
-      fontSize: '0.8rem',
-      fontWeight: 600,
+      fontSize: '1rem',
       cursor: 'pointer',
       transition: 'opacity 0.2s',
       zIndex: 100,
+      lineHeight: 1,
     },
     topStatusLine: {
       background: darkMode ? 'rgba(30, 41, 59, 0.4)' : 'rgba(255, 255, 255, 0.85)',
       border: theme.cardBorder,
       borderRadius: '8px',
-      padding: '8px 16px',
+      padding: '6px 14px',
       display: 'flex',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: '20px',
-      maxWidth: '1200px',
-      width: '100%',
-      margin: '0 auto 20px auto',
-      fontSize: '0.85rem',
+      flexWrap: 'wrap',
+      gap: '4px',
+      marginBottom: '16px',
+      fontSize: '0.8rem',
       boxShadow: theme.cardShadow,
       transition: 'all 0.3s ease',
     },
     topStatusLeft: {
       display: 'flex',
       alignItems: 'center',
-      gap: '6px',
+      gap: '5px',
     },
     topStatusRight: {
       display: 'flex',
       alignItems: 'center',
-      gap: '6px',
+      gap: '5px',
+      overflow: 'hidden',
     },
     topStatusLabel: {
       color: theme.textSecondary,
       fontWeight: 500,
+      whiteSpace: 'nowrap',
     },
     groupNameHighlight: {
       color: '#EAB308',
       fontWeight: 700,
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap',
+      maxWidth: '160px',
     },
     statusOnlineBadge: {
       color: '#10B981',
@@ -752,39 +756,39 @@ function getStyles(darkMode: boolean): Record<string, React.CSSProperties> {
     header: {
       maxWidth: '1200px',
       width: '100%',
-      margin: '0 auto 30px auto',
-      textAlign: 'center',
+      margin: '0 auto 20px auto',
+      textAlign: 'left' as const,
     },
     logoContainer: {
       display: 'flex',
       alignItems: 'center',
-      justifyContent: 'center',
-      gap: '20px',
+      gap: '14px',
     },
     logoImage: {
-      width: '72px',
-      height: '72px',
-      borderRadius: '14px',
+      width: '56px',
+      height: '56px',
+      borderRadius: '12px',
       border: darkMode ? '1.5px solid rgba(234, 179, 8, 0.5)' : '1.5px solid rgba(234, 179, 8, 0.6)',
       boxShadow: darkMode ? '0 4px 20px rgba(234, 179, 8, 0.2)' : '0 4px 16px rgba(234, 179, 8, 0.15)',
-      objectFit: 'cover',
+      objectFit: 'cover' as const,
       flexShrink: 0,
     },
     titleBlock: {
       display: 'flex',
-      flexDirection: 'column',
+      flexDirection: 'column' as const,
       alignItems: 'flex-start',
-      gap: '4px',
+      gap: '2px',
+      minWidth: 0,
     },
     titleEyebrow: {
-      fontSize: '0.75rem',
+      fontSize: '0.7rem',
       fontWeight: 600,
-      letterSpacing: '0.12em',
-      textTransform: 'uppercase',
-      color: darkMode ? 'rgba(234, 179, 8, 0.7)' : 'rgba(180, 130, 0, 0.85)',
+      letterSpacing: '0.1em',
+      textTransform: 'uppercase' as const,
+      color: darkMode ? 'rgba(234, 179, 8, 0.7)' : 'rgba(160, 110, 0, 0.85)',
     },
     logoText: {
-      fontSize: '1.6rem',
+      fontSize: 'clamp(1rem, 3.5vw, 1.5rem)',
       fontWeight: 700,
       color: theme.text,
       margin: 0,
@@ -792,11 +796,14 @@ function getStyles(darkMode: boolean): Record<string, React.CSSProperties> {
       letterSpacing: '-0.02em',
     },
     titleTagline: {
-      fontSize: '0.78rem',
+      fontSize: '0.72rem',
       fontWeight: 400,
       color: theme.textSecondary,
-      letterSpacing: '0.03em',
-      opacity: 0.8,
+      letterSpacing: '0.02em',
+      opacity: 0.75,
+      whiteSpace: 'nowrap' as const,
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
     },
     main: {
       maxWidth: '1200px',
