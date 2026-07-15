@@ -5,6 +5,8 @@ import React, { useState, useEffect } from 'react';
 interface Report {
   userId: string;
   displayName?: string;
+  groupId?: string;
+  groupName?: string;
   title: string;
   date: string;
   time?: string;
@@ -14,6 +16,11 @@ interface Report {
   base64Image: string | null;
   base64Images?: string[];
   sortTimestamp: number;
+}
+
+interface Group {
+  groupId: string;
+  groupName: string;
 }
 
 const DEFAULT_KEYWORDS = ['งาน', 'ใบงาน', 'ซ่อม', 'ใบแจ้งซ่อม', 'เลขที่', 'เปลี่ยน', 'ตรวจ', 'สำรวจ'];
@@ -31,6 +38,8 @@ function getISOWeekString(date: Date): string {
 export default function Dashboard() {
   const [selectedWeek, setSelectedWeek] = useState<string>('');
   const [reports, setReports] = useState<Report[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<string>('all');
   const [loading, setLoading] = useState<boolean>(false);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,10 +74,12 @@ export default function Dashboard() {
       const data = await res.json();
       const fetchedReports = data.reports || [];
       setReports(fetchedReports);
+      setGroups(data.groups || []);
       setThaiWeekRange(data.date || '');
     } catch (err: any) {
       setError(err.message || 'เกิดข้อผิดพลาดในการโหลดข้อมูล');
       setReports([]);
+      setGroups([]);
     } finally {
       setLoading(false);
     }
@@ -80,8 +91,15 @@ export default function Dashboard() {
     }
   }, [selectedWeek]);
 
-  // Helper to filter reports list based on active keywords
+  // Helper to filter reports list based on active keywords and selected group
   const getFilteredReports = (): Report[] => {
+    let filtered = reports;
+
+    // Filter by selected LINE group first
+    if (selectedGroupId !== 'all') {
+      filtered = filtered.filter(report => report.groupId === selectedGroupId);
+    }
+
     const activeKeywords = [...selectedKeywords];
     if (customKeywordInput.trim()) {
       customKeywordInput.split(',').forEach(kw => {
@@ -93,10 +111,10 @@ export default function Dashboard() {
     }
 
     if (activeKeywords.length === 0) {
-      return reports; // If no keyword filter is configured, show everything
+      return filtered; // If no keyword filter is configured, show everything in this group
     }
 
-    return reports.filter(report => {
+    return filtered.filter(report => {
       // Check if any summary line contains at least one of the active keywords (body only)
       // Exclude default placeholder strings
       const summaryMatches = report.summary.some(line => 
@@ -112,7 +130,7 @@ export default function Dashboard() {
 
   const filteredReports = getFilteredReports();
 
-  // Dynamically update selected indices when reports or keyword filters change
+  // Dynamically update selected indices when reports, group, or keyword filters change
   useEffect(() => {
     const visibleIndices = new Set(
       filteredReports
@@ -120,7 +138,7 @@ export default function Dashboard() {
         .filter(idx => idx !== -1)
     );
     setSelectedIndices(visibleIndices);
-  }, [reports, selectedKeywords, customKeywordInput]);
+  }, [reports, selectedGroupId, selectedKeywords, customKeywordInput]);
 
   const handleToggleSelect = (idx: number) => {
     const newSet = new Set(selectedIndices);
@@ -162,7 +180,7 @@ export default function Dashboard() {
   const handleDownload = () => {
     const indicesStr = Array.from(selectedIndices).sort((a, b) => a - b).join(',');
     // Open in new tab to trigger secure server-side proxy file download
-    window.open(`/api/download?week=${selectedWeek}&indices=${indicesStr}`, '_blank');
+    window.open(`/api/download?week=${selectedWeek}&indices=${indicesStr}&groupId=${selectedGroupId}`, '_blank');
   };
 
   const handleDownloadImagesZip = () => {
@@ -255,17 +273,42 @@ export default function Dashboard() {
       </header>
 
       <main style={styles.main}>
-        {/* Date Selector Section */}
+        {/* Date & Group Selector Section */}
         <section style={styles.controlCard}>
-          <div style={styles.controlGroup}>
-            <label style={styles.label} htmlFor="week-picker">เลือกสัปดาห์ที่ดูรายงาน:</label>
-            <input
-              id="week-picker"
-              type="week"
-              value={selectedWeek}
-              onChange={(e) => setSelectedWeek(e.target.value)}
-              style={styles.dateInput}
-            />
+          <div style={styles.selectorsRow}>
+            <div style={styles.controlGroup}>
+              <label style={styles.label} htmlFor="week-picker">เลือกสัปดาห์ที่ดูรายงาน:</label>
+              <input
+                id="week-picker"
+                type="week"
+                value={selectedWeek}
+                onChange={(e) => setSelectedWeek(e.target.value)}
+                style={styles.dateInput}
+              />
+            </div>
+
+            {/* Group Selection Dropdown */}
+            {!loading && groups.length > 0 && (
+              <div style={styles.controlGroup}>
+                <label style={styles.label} htmlFor="group-select">เลือกกลุ่มแชท LINE:</label>
+                <select
+                  id="group-select"
+                  value={selectedGroupId}
+                  onChange={(e) => setSelectedGroupId(e.target.value)}
+                  style={styles.selectInput}
+                >
+                  <option value="all">แสดงทุกกลุ่มแชท ({reports.length} สไลด์)</option>
+                  {groups.map(g => {
+                    const count = reports.filter(r => r.groupId === g.groupId).length;
+                    return (
+                      <option key={g.groupId} value={g.groupId}>
+                        {g.groupName} ({count} สไลด์)
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            )}
           </div>
 
           <div style={styles.actionGroup}>
@@ -302,7 +345,7 @@ export default function Dashboard() {
         </section>
 
         {/* Collapsible Filter Keywords Section */}
-        {!loading && reports.length > 0 && (
+        {!loading && filteredReports.length > 0 && (
           <section style={styles.filterCard}>
             <div style={styles.filterHeader}>
               <div style={styles.filterHeaderLeft}>
@@ -442,6 +485,9 @@ export default function Dashboard() {
                       />
                       <div style={styles.userBadge}>
                         ผู้รายงาน: {report.displayName || `ผู้ใช้ LINE (${report.userId.substring(0, 6)})`}
+                      </div>
+                      <div style={styles.groupBadge}>
+                        ห้องแชท: {report.groupName || 'กลุ่มทั่วไป'}
                       </div>
                       {hasBeenEdited && (
                         <span style={styles.editedBadge}>📝 แก้ไขแล้ว</span>
@@ -643,6 +689,11 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: '20px',
     boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3)',
   },
+  selectorsRow: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '24px',
+  },
   controlGroup: {
     display: 'flex',
     alignItems: 'center',
@@ -662,6 +713,17 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '0.95rem',
     outline: 'none',
     transition: 'border-color 0.2s',
+  },
+  selectInput: {
+    backgroundColor: '#0F172A',
+    border: '1.5px solid #475569',
+    borderRadius: '8px',
+    color: '#F8FAFC',
+    padding: '10px 14px',
+    fontSize: '0.95rem',
+    outline: 'none',
+    transition: 'border-color 0.2s',
+    cursor: 'pointer',
   },
   actionGroup: {
     display: 'flex',
@@ -934,6 +996,15 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: '#3b82f61a',
     color: '#60A5FA',
     border: '1px solid #3b82f633',
+    borderRadius: '9999px',
+    padding: '4px 12px',
+    fontSize: '0.85rem',
+    fontWeight: 600,
+  },
+  groupBadge: {
+    backgroundColor: 'rgba(234, 179, 8, 0.1)',
+    color: '#FBBF24',
+    border: '1px solid rgba(234, 179, 8, 0.2)',
     borderRadius: '9999px',
     padding: '4px 12px',
     fontSize: '0.85rem',

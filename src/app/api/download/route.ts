@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { db } from '@/lib/firebaseAdmin';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,6 +8,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const weekParam = searchParams.get('week') || '';
     const indicesParam = searchParams.get('indices') || '';
+    const groupIdParam = searchParams.get('groupId') || '';
 
     const host = req.headers.get('host') || 'localhost:3000';
     const protocol = req.url.startsWith('https') ? 'https' : 'http';
@@ -25,6 +27,24 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: `PPTX generation failed: ${errMsg}` }, { status: generateRes.status });
     }
 
+    // Resolve group name for the filename
+    let groupName = 'หบอว-ธ.';
+    if (groupIdParam && groupIdParam !== 'all') {
+      if (groupIdParam === 'private') {
+        groupName = 'แชทส่วนตัว';
+      } else {
+        try {
+          const groupDoc = await db.collection('line_groups').doc(groupIdParam).get();
+          const groupData = groupDoc.data();
+          if (groupDoc.exists && groupData && groupData.groupName) {
+            groupName = groupData.groupName;
+          }
+        } catch (err) {
+          console.error('Error fetching group name for download filename:', err);
+        }
+      }
+    }
+
     const contentType = generateRes.headers.get('Content-Type') || 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
     let weekNumber = weekParam;
     let year = '2026';
@@ -33,9 +53,9 @@ export async function GET(req: NextRequest) {
       year = parts[0];
       weekNumber = parts[1];
     }
-    const filename = `Weekly Report (หบอว-ธ.) (week ${weekNumber}-${year}).pptx`;
+    const filename = `Weekly Report (${groupName}) (week ${weekNumber}-${year}).pptx`;
     const safeFilename = encodeURIComponent(filename);
-    const contentDisposition = generateRes.headers.get('Content-Disposition') || `attachment; filename*=UTF-8''${safeFilename}`;
+    const contentDisposition = `attachment; filename*=UTF-8''${safeFilename}`;
     const contentLength = generateRes.headers.get('Content-Length');
 
     const buffer = await generateRes.arrayBuffer();

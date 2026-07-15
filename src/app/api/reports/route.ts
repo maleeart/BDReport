@@ -20,6 +20,23 @@ async function getLineUserProfile(userId: string, accessToken: string): Promise<
   return null;
 }
 
+async function getLineGroupName(groupId: string, accessToken: string): Promise<string | null> {
+  try {
+    const res = await fetch(`https://api.line.me/v2/bot/group/${groupId}/summary`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data.groupName || null;
+    }
+  } catch (err) {
+    console.error(`Error fetching group name for ${groupId}:`, err);
+  }
+  return null;
+}
+
 // Helper to get YYYY-Www ISO week string from a Date object
 function getISOWeekString(date: Date): string {
   const target = new Date(date.valueOf());
@@ -43,62 +60,67 @@ function getWeekRangeFromWeekStr(weekStr: string) {
   const simple = new Date(year, 0, 1 + (week - 1) * 7);
   const dayOfWeek = simple.getDay();
   const ISOweekStart = new Date(simple);
-  
   if (dayOfWeek <= 4) {
     ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1);
   } else {
     ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
   }
-  
-  const monday = new Date(`${ISOweekStart.toISOString().split('T')[0]}T00:00:00+07:00`);
+
+  // Set start to Monday 00:00:00 Bangkok time (UTC+7, which is UTC Monday - 7 hours, i.e. Sunday 17:00:00 UTC)
+  const monday = new Date(ISOweekStart);
+  monday.setHours(-7, 0, 0, 0);
+
+  // Set end to Sunday 23:59:59 Bangkok time (UTC+7, which is UTC Sunday + 17 hours)
   const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-  const sundayEnd = new Date(`${sunday.toISOString().split('T')[0]}T23:59:59.999+07:00`);
-  
-  return { monday, sunday: sundayEnd };
+  sunday.setDate(monday.getDate() + 7);
+  sunday.setMilliseconds(-1);
+
+  return { start: monday, end: sunday };
 }
 
-// Format week range in Thai: "ประจำวันที่ 13 - 19 กรกฎาคม 2569"
-function formatThaiWeekRange(monday: Date, sunday: Date): string {
-  const months = [
-    'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
-    'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+// Format Thai Date string (e.g. "12 พ.ค. 2567 - 18 พ.ค. 2567")
+function formatThaiWeekRange(mondayDate: Date, sundayDate: Date): string {
+  const thaiMonthsShort = [
+    'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
+    'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'
   ];
-  
-  const mDay = monday.getDate();
-  const mMonth = months[monday.getMonth()];
-  const mYear = monday.getFullYear() + 543;
-  
-  const sDay = sunday.getDate();
-  const sMonth = months[sunday.getMonth()];
-  const sYear = sunday.getFullYear() + 543;
-  
-  if (mYear !== sYear) {
-    return `ประจำวันที่ ${mDay} ${mMonth} ${mYear} - ${sDay} ${sMonth} ${sYear}`;
-  }
-  if (mMonth !== sMonth) {
-    return `ประจำวันที่ ${mDay} ${mMonth} - ${sDay} ${sMonth} ${mYear}`;
-  }
-  return `ประจำวันที่ ${mDay} - ${sDay} ${mMonth} ${mYear}`;
+
+  // Adjust for Bangkok timezone (UTC+7) for display formatting
+  const displayMonday = new Date(mondayDate.getTime() + 7 * 60 * 60 * 1000);
+  const displaySunday = new Date(sundayDate.getTime() + 7 * 60 * 60 * 1000);
+
+  const startDay = displayMonday.getUTCDate();
+  const startMonth = thaiMonthsShort[displayMonday.getUTCMonth()];
+  const startYear = displayMonday.getUTCFullYear() + 543;
+
+  const endDay = displaySunday.getUTCDate();
+  const endMonth = thaiMonthsShort[displaySunday.getUTCMonth()];
+  const endYear = displaySunday.getUTCFullYear() + 543;
+
+  return `${startDay} ${startMonth} ${startYear} - ${endDay} ${endMonth} ${endYear}`;
 }
 
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const weekParam = searchParams.get('week'); // Expects YYYY-Www
+    const weekParam = searchParams.get('week') || '';
 
-    // Get current week in Asia/Bangkok if not provided
-    const nowBangkok = new Date(new Date().getTime() + 7 * 60 * 60 * 1000);
-    const targetWeek = weekParam || getISOWeekString(nowBangkok);
+    let monday: Date;
+    let sunday: Date;
 
-    // Calculate start and end date of the week in Bangkok timezone (+07:00)
-    const { monday, sunday } = getWeekRangeFromWeekStr(targetWeek);
-
-    const geminiApiKey = process.env.GEMINI_API_KEY;
-    if (!geminiApiKey) {
-      return NextResponse.json({ error: 'Missing GEMINI_API_KEY' }, { status: 500 });
+    if (weekParam) {
+      const range = getWeekRangeFromWeekStr(weekParam);
+      monday = range.start;
+      sunday = range.end;
+    } else {
+      // Default to current week
+      const currentWeek = getISOWeekString(new Date());
+      const range = getWeekRangeFromWeekStr(currentWeek);
+      monday = range.start;
+      sunday = range.end;
     }
 
+    // Fetch messages for the specified week range
     const snapshot = await db
       .collection('line_reports')
       .where('createdAt', '>=', monday)
@@ -108,11 +130,13 @@ export async function GET(req: NextRequest) {
     const thaiWeekRange = formatThaiWeekRange(monday, sunday);
 
     if (snapshot.empty) {
-      return NextResponse.json({ date: thaiWeekRange, reports: [] });
+      return NextResponse.json({ date: thaiWeekRange, reports: [], groups: [] });
     }
 
-    // Group reports by userId first
+    // Group reports by userId first and track unique groupIds
     const userReportsMap: Record<string, any[]> = {};
+    const groupIdsSet = new Set<string>();
+
     snapshot.docs.forEach((doc: any) => {
       const data = doc.data();
       const userId = data.userId;
@@ -120,13 +144,22 @@ export async function GET(req: NextRequest) {
         userReportsMap[userId] = [];
       }
       userReportsMap[userId].push(data);
+      if (data.groupId) {
+        groupIdsSet.add(data.groupId);
+      } else {
+        groupIdsSet.add('private');
+      }
     });
 
     const reportsList: any[] = [];
     const userNamesMap: Record<string, string> = {};
+    const groupNamesMap: Record<string, string> = {};
+    
     const userIds = Object.keys(userReportsMap);
+    const groupIds = Array.from(groupIdsSet);
     const accessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN || '';
 
+    // Fetch User Names
     if (userIds.length > 0) {
       await Promise.all(
         userIds.map(async (userId) => {
@@ -158,6 +191,38 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    // Fetch Group Names
+    if (groupIds.length > 0) {
+      await Promise.all(
+        groupIds.map(async (gid) => {
+          if (gid === 'private') {
+            groupNamesMap[gid] = 'แชทส่วนตัว';
+            return;
+          }
+          try {
+            const groupDoc = await db.collection('line_groups').doc(gid).get();
+            const groupData = groupDoc.data();
+            if (groupDoc.exists && groupData) {
+              groupNamesMap[gid] = groupData.groupName;
+            } else {
+              let groupName = `กลุ่ม LINE (${gid.substring(0, 6)})`;
+              if (accessToken) {
+                const fetchedGroupName = await getLineGroupName(gid, accessToken);
+                if (fetchedGroupName) {
+                  groupName = fetchedGroupName;
+                  await db.collection('line_groups').doc(gid).set({ groupName });
+                }
+              }
+              groupNamesMap[gid] = groupName;
+            }
+          } catch (err) {
+            console.error(`Error fetching group name for ${gid}:`, err);
+            groupNamesMap[gid] = `กลุ่ม LINE (${gid.substring(0, 6)})`;
+          }
+        })
+      );
+    }
+
     // For each user, cluster their messages into separate "tasks" based on a 1-minute (60,000 ms) window
     for (const [userId, reports] of Object.entries(userReportsMap)) {
       // Sort reports chronologically
@@ -171,7 +236,6 @@ export async function GET(req: NextRequest) {
           currentGroup.push(report);
         } else {
           const lastReport = currentGroup[currentGroup.length - 1];
-          // Compare LINE event timestamps (milliseconds)
           const timeDiff = Math.abs((report.timestamp || 0) - (lastReport.timestamp || 0));
 
           if (timeDiff <= 60000) { // Proximity within 1 minute
@@ -229,9 +293,13 @@ export async function GET(req: NextRequest) {
           timeZone: 'Asia/Bangkok',
         });
 
+        const repGroupId = representativeReport.groupId || 'private';
+
         reportsList.push({
           userId,
           displayName: userNamesMap[userId] || `ผู้ใช้ LINE (${userId.substring(0, 6)})`,
+          groupId: repGroupId,
+          groupName: groupNamesMap[repGroupId] || (repGroupId === 'private' ? 'แชทส่วนตัว' : 'กลุ่มทั่วไป'),
           title,
           date: reportDateStr,
           time: reportTimeStr,
@@ -271,9 +339,17 @@ export async function GET(req: NextRequest) {
     // Sort all slide entries chronologically across the week
     reportsList.sort((a, b) => a.sortTimestamp - b.sortTimestamp);
 
+    // Extract unique groups list
+    const uniqueGroups = Array.from(new Set(reportsList.map(r => r.groupId)));
+    const groupsList = uniqueGroups.map(gid => ({
+      groupId: gid,
+      groupName: groupNamesMap[gid] || (gid === 'private' ? 'แชทส่วนตัว' : `กลุ่ม LINE (${gid.substring(0, 6)})`)
+    }));
+
     return NextResponse.json({
       date: thaiWeekRange,
       reports: reportsList,
+      groups: groupsList,
     }, {
       headers: {
         'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
