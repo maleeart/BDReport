@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
+import sharp from 'sharp';
 import { db } from '@/lib/firebaseAdmin';
 
 export async function POST(req: NextRequest) {
@@ -63,7 +64,14 @@ export async function POST(req: NextRequest) {
 
           const arrayBuffer = await lineRes.arrayBuffer();
           const buffer = Buffer.from(arrayBuffer);
-          const base64Image = `data:image/jpeg;base64,${buffer.toString('base64')}`;
+
+          // Compress the image using sharp to fit inside Firestore 1MB document limit
+          const compressedBuffer = await sharp(buffer)
+            .resize({ width: 1000, height: 1000, fit: 'inside', withoutEnlargement: true })
+            .jpeg({ quality: 75 })
+            .toBuffer();
+
+          const base64Image = `data:image/jpeg;base64,${compressedBuffer.toString('base64')}`;
 
           // Save directly to Firestore
           await db.collection('line_reports').add({
