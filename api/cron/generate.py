@@ -1,0 +1,225 @@
+from http.server import BaseHTTPRequestHandler
+import json
+import urllib.parse
+import urllib.request
+import io
+import base64
+import copy
+import os
+from pptx import Presentation
+
+def clone_slide(prs, src_slide):
+    new_slide = prs.slides.add_slide(src_slide.slide_layout)
+    for shape in src_slide.shapes:
+        new_shape_xml = copy.deepcopy(shape.element)
+        new_slide.shapes._spTree.append(new_shape_xml)
+    return new_slide
+
+class handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        try:
+            # 1. Parse Query Parameters
+            parsed_url = urllib.parse.urlparse(self.path)
+            query_params = urllib.parse.parse_qs(parsed_url.query)
+            
+            query_secret = query_params.get('secret', [None])[0]
+            date_param = query_params.get('date', [None])[0]
+            
+            # Default to today if date is not provided
+            # Standard ISO YYYY-MM-DD
+            if not date_param:
+                # We can import datetime
+                from datetime import datetime
+                date_param = datetime.utcnow().strftime('%Y-%m-%d')
+
+            # 2. Check Authentication
+            cron_secret = os.environ.get('CRON_SECRET')
+            auth_header = self.headers.get('Authorization')
+            
+            is_authorized = not cron_secret or \
+                            (auth_header == f"Bearer {cron_secret}") or \
+                            (query_secret == cron_secret)
+
+            if not is_authorized:
+                self.send_response(401)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({'error': 'Unauthorized'}).encode('utf-8'))
+                return
+
+            # 3. Fetch Report Data from local Node.js API
+            host = self.headers.get('Host', 'localhost:3000')
+            # Detect protocol from forwarded headers or host
+            protocol = 'https' if 'https' in self.headers.get('X-Forwarded-Proto', '') else 'http'
+            reports_url = f"{protocol}://{host}/api/reports?date={date_param}"
+
+            # Make request
+            req = urllib.request.Request(reports_url)
+            try:
+                with urllib.request.urlopen(req) as response:
+                    res_body = response.read().decode('utf-8')
+                    report_data = json.loads(res_body)
+            except Exception as fetch_err:
+                self.send_response(500)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({'error': f'Failed to fetch reports: {str(fetch_err)}'}).encode('utf-8'))
+                return
+
+            # If no reports, return JSON info
+            reports = report_data.get('reports', [])
+            report_date = report_data.get('date', '')
+            if not reports:
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({'message': 'No reports found for this date', 'date': report_date}).encode('utf-8'))
+                return
+
+            # 4. Open template and modify PPTX
+            # templateReport.pptx should be located in the root of the project
+            # Vercel deploys files relative to the project root
+            template_path = 'templateReport.pptx'
+            if not os.path.exists(template_path):
+                # Try finding in parent directory if Vercel nesting differs
+                template_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'templateReport.pptx')
+                if not os.path.exists(template_path):
+                    template_path = 'templateReport.pptx'
+
+            prs = Presentation(template_path)
+
+            # Slide 1: Cover
+            slide1 = prs.slides[0]
+            for shape in slide1.shapes:
+                if shape.has_text_frame and "Update" in shape.text_frame.text:
+                    shape.text_frame.text = f"Update {report_date}"
+
+            # Slide 2 and 3 are templates
+            slide2 = prs.slides[1]
+            slide4 = prs.slides[3] if len(prs.slides) > 3 else None
+
+            # Generate slides for each user report
+            for report in reports:
+                new_slide = clone_slide(prs, slide2)
+                
+                for shape in list(new_slide.shapes):
+                    if not shape.has_text_frame:
+                        continue
+                    
+                    text = shape.text_frame.text.strip()
+                    
+                    if "ชื่องาน" in text:
+                        shape.text_frame.text = report.get('title', 'Daily Report')
+                    elif "วันที่ดำเนินการ" in text:
+                        shape.text_frame.text = report.get('date', report_date)
+                    elif "เนื้อหา" in text:
+                        bullets = report.get('summary', [])
+                        shape.text_frame.text = ""
+                        tf = shape.text_frame
+                        tf.word_wrap = True
+                        for index, bullet in enumerate(bullets):
+                            p = tf.add_paragraph() if index > 0 else tf.paragraphs[0]
+                            p.text = f"• {bullet}"
+                    elif "รูปประกอบ" in text:
+                        left = shape.left
+                        top = shape.top
+                        width = shape.width
+                        height = shape.height
+                        
+                        new_slide.shapes._spTree.remove(shape.element)
+                        
+                        img_base64 = report.get('base64Image')
+                        if img_base64:
+                            try:
+                                header, encoded = img_base64.split(",", 1) if "," in img_base64 else ("", img_base64)
+                                img_data = base64.b64decode(encoded)
+                                img_stream = io.BytesIO(img_data)
+                                new_slide.shapes.add_picture(img_stream, left, top, width, height)
+                            except Exception as img_err:
+                                print(f"Error adding image: {img_err}")
+                        else:
+                            txBox = new_slide.shapes.add_textbox(left, top, width, height)
+                            txBox.text_frame.text = "[ไม่มีรูปประกอบ]"
+
+            # Clone Slide 4 (Closing) to the end
+            if slide4:
+                clone_slide(prs, slide4)
+
+            # Delete the template slides (Slide 2, Slide 3, and original Slide 4)
+            id_list = prs.slides._sldIdLst
+            if len(id_list) > 3:
+                del id_list[3]  # Original S4
+            if len(id_list) > 2:
+                del id_list[2]  # Original S3
+            if len(id_list) > 1:
+                del id_list[1]  # Original S2
+
+            # 5. Save PPTX into an in-memory stream
+            output_stream = io.BytesIO()
+            prs.save(output_stream)
+            output_stream.seek(0)
+            pptx_bytes = output_stream.read()
+
+            # 6. Optional: Upload to Discord if Webhook is set
+            discord_url = os.environ.get('DISCORD_WEBHOOK_URL')
+            if discord_url:
+                try:
+                    # Construct multipart form-data payload in python without external libraries
+                    boundary = '----BDReportBoundary'
+                    payload = []
+                    
+                    # File field
+                    payload.append(f'--{boundary}')
+                    payload.append(f'Content-Disposition: form-data; name="file"; filename="report-{date_param}.pptx"')
+                    payload.append('Content-Type: application/vnd.openxmlformats-officedocument.presentationml.presentation')
+                    payload.append('')
+                    payload.append(pptx_bytes)
+                    
+                    # Payload JSON field
+                    payload.append(f'--{boundary}')
+                    payload.append('Content-Disposition: form-data; name="payload_json"')
+                    payload.append('Content-Type: application/json')
+                    payload.append('')
+                    payload.append(json.dumps({
+                        'content': f'📊 **BDReport PowerPoint Generated from Template**\nDate: {report_date}'
+                    }))
+                    
+                    payload.append(f'--{boundary}--')
+                    payload.append('')
+                    
+                    # Merge payload parts
+                    body = b''
+                    for part in payload:
+                        if isinstance(part, str):
+                            body += part.encode('utf-8') + b'\r\n'
+                        else:
+                            body += part + b'\r\n'
+                            
+                    discord_req = urllib.request.Request(
+                        discord_url,
+                        data=body,
+                        headers={
+                            'Content-Type': f'multipart/form-data; boundary={boundary}',
+                            'Content-Length': len(body)
+                        },
+                        method='POST'
+                    )
+                    with urllib.request.urlopen(discord_req) as discord_res:
+                        pass
+                except Exception as discord_err:
+                    print(f"Failed to post to Discord: {discord_err}")
+
+            # 7. Send Response File
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation')
+            self.send_header('Content-Disposition', f'attachment; filename="report-{date_param}.pptx"')
+            self.send_header('Content-Length', len(pptx_bytes))
+            self.end_headers()
+            self.wfile.write(pptx_bytes)
+
+        except Exception as e:
+            self.send_response(500)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({'error': str(e)}).encode('utf-8'))
+            return
