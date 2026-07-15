@@ -33,12 +33,14 @@ export async function POST(req: NextRequest) {
     for (const event of events) {
       if (event.type === 'message') {
         const userId = event.source?.userId || 'unknown';
+        const groupId = event.source?.groupId || event.source?.roomId || 'private';
         const timestamp = event.timestamp;
         const message = event.message;
 
         if (message.type === 'text') {
           await db.collection('line_reports').add({
             userId,
+            groupId,
             type: 'text',
             messageId: message.id,
             content: message.text,
@@ -85,6 +87,7 @@ export async function POST(req: NextRequest) {
           // Save directly to Firestore
           await db.collection('line_reports').add({
             userId,
+            groupId,
             type: 'image',
             messageId: message.id,
             base64Image,

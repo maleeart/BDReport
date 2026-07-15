@@ -243,6 +243,31 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Load all edited reports for this week's reports in parallel and merge
+    if (reportsList.length > 0) {
+      await Promise.all(
+        reportsList.map(async (rep) => {
+          const docId = `${rep.userId}_${rep.sortTimestamp}`;
+          try {
+            const editedDoc = await db.collection('edited_reports').doc(docId).get();
+            const editedData = editedDoc.data();
+            if (editedDoc.exists && editedData) {
+              rep.originalSummary = editedData.originalSummary || [...rep.summary];
+              rep.summary = editedData.editedSummary || rep.summary;
+              rep.isEdited = true;
+            } else {
+              rep.originalSummary = [...rep.summary];
+              rep.isEdited = false;
+            }
+          } catch (err) {
+            console.error(`Error loading edit for doc ${docId}:`, err);
+            rep.originalSummary = [...rep.summary];
+            rep.isEdited = false;
+          }
+        })
+      );
+    }
+
     // Sort all slide entries chronologically across the week
     reportsList.sort((a, b) => a.sortTimestamp - b.sortTimestamp);
 

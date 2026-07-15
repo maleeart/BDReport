@@ -9,8 +9,11 @@ interface Report {
   date: string;
   time?: string;
   summary: string[];
+  originalSummary?: string[];
+  isEdited?: boolean;
   base64Image: string | null;
   base64Images?: string[];
+  sortTimestamp: number;
 }
 
 const DEFAULT_KEYWORDS = ['งาน', 'ใบงาน', 'ซ่อม', 'ใบแจ้งซ่อม', 'เลขที่', 'เปลี่ยน', 'ตรวจ', 'สำรวจ'];
@@ -29,6 +32,7 @@ export default function Dashboard() {
   const [selectedWeek, setSelectedWeek] = useState<string>('');
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  const [actionLoading, setActionLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [thaiWeekRange, setThaiWeekRange] = useState<string>('');
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
@@ -37,6 +41,11 @@ export default function Dashboard() {
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>(DEFAULT_KEYWORDS);
   const [customKeywordInput, setCustomKeywordInput] = useState<string>('');
   const [showFilterConfig, setShowFilterConfig] = useState<boolean>(false);
+
+  // Editing States
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editingText, setEditingText] = useState<string>('');
+  const [showOriginalMap, setShowOriginalMap] = useState<Record<number, boolean>>({});
 
   // Set default week to current week on mount
   useEffect(() => {
@@ -156,6 +165,85 @@ export default function Dashboard() {
     window.open(`/api/download?week=${selectedWeek}&indices=${indicesStr}`, '_blank');
   };
 
+  const handleDownloadImagesZip = () => {
+    window.open(`/api/download-images?week=${selectedWeek}`, '_blank');
+  };
+
+  const startEditing = (idx: number, report: Report) => {
+    setEditingIndex(idx);
+    setEditingText(report.summary.join('\n'));
+  };
+
+  const cancelEditing = () => {
+    setEditingIndex(null);
+    setEditingText('');
+  };
+
+  const saveEdit = async (idx: number, report: Report) => {
+    setActionLoading(true);
+    try {
+      const lines = editingText.split('\n').map(l => l.trim()).filter(Boolean);
+      const res = await fetch('/api/reports/edit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: report.userId,
+          timestamp: report.sortTimestamp,
+          editedSummary: lines,
+          originalSummary: report.originalSummary || report.summary,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error('ไม่สามารถบันทึกการแก้ไขได้');
+      }
+
+      setEditingIndex(null);
+      // Refresh reports list
+      await fetchReports(selectedWeek);
+    } catch (err: any) {
+      alert(err.message || 'เกิดข้อผิดพลาดในการบันทึก');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const revertEdit = async (report: Report) => {
+    if (!confirm('คุณต้องการยกเลิกการแก้ไขนี้และย้อนกลับไปใช้ข้อความต้นฉบับจาก LINE หรือไม่?')) {
+      return;
+    }
+    setActionLoading(true);
+    try {
+      const res = await fetch('/api/reports/edit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: report.userId,
+          timestamp: report.sortTimestamp,
+          editedSummary: null, // Null indicates revert
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error('ไม่สามารถย้อนกลับข้อมูลได้');
+      }
+
+      // Re-fetch reports
+      await fetchReports(selectedWeek);
+    } catch (err: any) {
+      alert(err.message || 'เกิดข้อผิดพลาดในการย้อนกลับข้อมูล');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const toggleShowOriginal = (idx: number) => {
+    setShowOriginalMap(prev => ({
+      ...prev,
+      [idx]: !prev[idx]
+    }));
+  };
+
   return (
     <div style={styles.container}>
       <header style={styles.header}>
@@ -187,6 +275,17 @@ export default function Dashboard() {
               style={styles.refreshButton}
             >
               🔄 รีเฟรชข้อมูล
+            </button>
+            <button
+              onClick={handleDownloadImagesZip}
+              disabled={loading || reports.length === 0}
+              style={{
+                ...styles.zipButton,
+                opacity: (loading || reports.length === 0) ? 0.6 : 1,
+                cursor: (loading || reports.length === 0) ? 'not-allowed' : 'pointer',
+              }}
+            >
+              📦 โหลดรูปภาพทั้งหมด (.zip)
             </button>
             <button
               onClick={handleDownload}
@@ -287,40 +386,43 @@ export default function Dashboard() {
         )}
 
         {/* Status Messages */}
-        {loading && (
+        {(loading || actionLoading) && (
           <div style={styles.loadingContainer}>
             <div style={styles.spinner}></div>
-            <p>กำลังค้นหาข้อมูลจากระบบ...</p>
+            <p>{actionLoading ? 'กำลังบันทึกข้อมูล...' : 'กำลังค้นหาข้อมูลจากระบบ...'}</p>
           </div>
         )}
 
-        {error && (
+        {error && !loading && !actionLoading && (
           <div style={styles.errorCard}>
             <p>⚠️ {error}</p>
           </div>
         )}
 
         {/* Reports List */}
-        {!loading && !error && reports.length === 0 && (
+        {!loading && !actionLoading && !error && reports.length === 0 && (
           <div style={styles.emptyCard}>
             <p style={{ fontSize: '1.2rem', marginBottom: '8px' }}>📭 ไม่พบรายงานของสัปดาห์นี้</p>
             <p style={{ color: '#94A3B8', fontSize: '0.9rem' }}>สมาชิกในทีมยังไม่ได้ส่งรายงานผ่านแชทบอท LINE</p>
           </div>
         )}
 
-        {!loading && reports.length > 0 && filteredReports.length === 0 && (
+        {!loading && !actionLoading && reports.length > 0 && filteredReports.length === 0 && (
           <div style={styles.emptyCard}>
             <p style={{ fontSize: '1.2rem', marginBottom: '8px' }}>🔍 ไม่พบข้อมูลที่ตรงกับคำสำคัญที่คุณเลือก</p>
             <p style={{ color: '#94A3B8', fontSize: '0.9rem' }}>ลองคลิกปรับแต่งตัวกรองด้านบนเพื่อตั้งค่าคำค้นหาใหม่</p>
           </div>
         )}
 
-        {!loading && filteredReports.length > 0 && (
+        {!loading && !actionLoading && filteredReports.length > 0 && (
           <div style={styles.reportsGrid}>
             {filteredReports.map((report) => {
               const originalIndex = reports.indexOf(report);
               const isSelected = selectedIndices.has(originalIndex);
-              
+              const isCurrentlyEditing = editingIndex === originalIndex;
+              const hasBeenEdited = report.isEdited;
+              const showOriginal = !!showOriginalMap[originalIndex];
+
               return (
                 <article 
                   key={originalIndex} 
@@ -341,6 +443,9 @@ export default function Dashboard() {
                       <div style={styles.userBadge}>
                         ผู้รายงาน: {report.displayName || `ผู้ใช้ LINE (${report.userId.substring(0, 6)})`}
                       </div>
+                      {hasBeenEdited && (
+                        <span style={styles.editedBadge}>📝 แก้ไขแล้ว</span>
+                      )}
                     </div>
                     <span style={styles.reportTime}>
                       📅 วันที่ {report.date} เวลา {report.time || '--:--'} น.
@@ -350,15 +455,86 @@ export default function Dashboard() {
                   <h3 style={styles.reportTitle}>{report.title}</h3>
 
                   <div style={styles.cardContent}>
+                    {/* Text / Summary Section */}
                     <div style={styles.textSection}>
-                      <h4 style={styles.sectionLabel}>📝 รายละเอียดงาน:</h4>
-                      <ul style={styles.list}>
-                        {report.summary.map((task, idx) => (
-                          <li key={idx} style={styles.listItem}>{task}</li>
-                        ))}
-                      </ul>
+                      <div style={styles.textSectionHeader}>
+                        <h4 style={styles.sectionLabel}>📝 รายละเอียดงาน:</h4>
+                        {!isCurrentlyEditing && (
+                          <div style={styles.editActions}>
+                            <button
+                              onClick={() => startEditing(originalIndex, report)}
+                              style={styles.editButton}
+                            >
+                              ✏️ แก้ไขเนื้อหา
+                            </button>
+                            {hasBeenEdited && (
+                              <>
+                                <button
+                                  onClick={() => toggleShowOriginal(originalIndex)}
+                                  style={styles.originalToggleButton}
+                                >
+                                  {showOriginal ? '🙈 ซ่อนข้อความเดิม' : '👁️ ดูข้อความเดิม'}
+                                </button>
+                                <button
+                                  onClick={() => revertEdit(report)}
+                                  style={styles.revertButton}
+                                >
+                                  ↩️ ย้อนกลับ
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {isCurrentlyEditing ? (
+                        <div style={styles.editingBlock}>
+                          <p style={styles.editingTip}>คำแนะนำ: พิมพ์ 1 บรรทัดต่อ 1 บรรทัดสรุปงาน (แยกบรรทัดจะกลายเป็น Bullet Point ต่าง ๆ)</p>
+                          <textarea
+                            value={editingText}
+                            onChange={(e) => setEditingText(e.target.value)}
+                            style={styles.textarea}
+                            rows={5}
+                          />
+                          <div style={styles.editButtonGroup}>
+                            <button
+                              onClick={() => saveEdit(originalIndex, report)}
+                              style={styles.saveBtn}
+                            >
+                              💾 บันทึกทับ
+                            </button>
+                            <button
+                              onClick={cancelEditing}
+                              style={styles.cancelBtn}
+                            >
+                              ยกเลิก
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <ul style={styles.list}>
+                            {report.summary.map((task, idx) => (
+                              <li key={idx} style={styles.listItem}>{task}</li>
+                            ))}
+                          </ul>
+
+                          {/* Show Original Message Block if toggled */}
+                          {hasBeenEdited && showOriginal && report.originalSummary && (
+                            <div style={styles.originalSummaryBox}>
+                              <div style={styles.originalSummaryHeader}>💬 ข้อความต้นฉบับส่งจาก LINE:</div>
+                              <ul style={styles.originalList}>
+                                {report.originalSummary.map((originalTask, idx) => (
+                                  <li key={idx} style={styles.originalListItem}>{originalTask}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </>
+                      )}
                     </div>
 
+                    {/* Image Section */}
                     <div style={styles.imageSection}>
                       <h4 style={styles.sectionLabel}>🖼️ รูปภาพประกอบ:</h4>
                       {report.base64Images && report.base64Images.length > 0 ? (
@@ -502,6 +678,17 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     cursor: 'pointer',
     transition: 'background-color 0.2s',
+  },
+  zipButton: {
+    backgroundColor: '#1E293B',
+    color: '#E2E8F0',
+    border: '1.5px solid #475569',
+    borderRadius: '8px',
+    padding: '12px 20px',
+    fontSize: '0.95rem',
+    fontWeight: 600,
+    cursor: 'pointer',
+    transition: 'all 0.2s',
   },
   downloadButton: {
     background: 'linear-gradient(135deg, #EAB308 0%, #D97706 100%)',
@@ -728,11 +915,14 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: '14px',
+    flexWrap: 'wrap',
+    gap: '12px',
   },
   headerLeft: {
     display: 'flex',
     alignItems: 'center',
     gap: '12px',
+    flexWrap: 'wrap',
   },
   checkbox: {
     width: '20px',
@@ -744,6 +934,15 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: '#3b82f61a',
     color: '#60A5FA',
     border: '1px solid #3b82f633',
+    borderRadius: '9999px',
+    padding: '4px 12px',
+    fontSize: '0.85rem',
+    fontWeight: 600,
+  },
+  editedBadge: {
+    backgroundColor: 'rgba(234, 179, 8, 0.15)',
+    color: '#FBBF24',
+    border: '1px solid rgba(234, 179, 8, 0.3)',
     borderRadius: '9999px',
     padding: '4px 12px',
     fontSize: '0.85rem',
@@ -771,11 +970,100 @@ const styles: Record<string, React.CSSProperties> = {
   textSection: {
     flex: '2 1 400px',
   },
+  textSectionHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '10px',
+    flexWrap: 'wrap',
+    gap: '10px',
+  },
   sectionLabel: {
     fontSize: '0.95rem',
     fontWeight: 600,
     color: '#94A3B8',
-    marginBottom: '10px',
+    margin: 0,
+  },
+  editActions: {
+    display: 'flex',
+    gap: '8px',
+  },
+  editButton: {
+    backgroundColor: 'transparent',
+    border: 'none',
+    color: '#60A5FA',
+    cursor: 'pointer',
+    fontSize: '0.85rem',
+    fontWeight: 600,
+    textDecoration: 'underline',
+  },
+  originalToggleButton: {
+    backgroundColor: 'transparent',
+    border: 'none',
+    color: '#FBBF24',
+    cursor: 'pointer',
+    fontSize: '0.85rem',
+    fontWeight: 600,
+    textDecoration: 'underline',
+  },
+  revertButton: {
+    backgroundColor: 'transparent',
+    border: 'none',
+    color: '#F87171',
+    cursor: 'pointer',
+    fontSize: '0.85rem',
+    fontWeight: 600,
+    textDecoration: 'underline',
+  },
+  editingBlock: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+    backgroundColor: 'rgba(30, 41, 59, 0.5)',
+    padding: '16px',
+    borderRadius: '8px',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+  },
+  editingTip: {
+    fontSize: '0.8rem',
+    color: '#94A3B8',
+    margin: 0,
+  },
+  textarea: {
+    width: '100%',
+    backgroundColor: '#0F172A',
+    color: '#F8FAFC',
+    border: '1.5px solid #475569',
+    borderRadius: '8px',
+    padding: '10px',
+    fontSize: '0.95rem',
+    fontFamily: 'inherit',
+    outline: 'none',
+  },
+  editButtonGroup: {
+    display: 'flex',
+    gap: '10px',
+    justifyContent: 'flex-end',
+  },
+  saveBtn: {
+    backgroundColor: '#EAB308',
+    color: '#0F172A',
+    border: 'none',
+    borderRadius: '6px',
+    padding: '8px 16px',
+    fontSize: '0.9rem',
+    fontWeight: 700,
+    cursor: 'pointer',
+  },
+  cancelBtn: {
+    backgroundColor: 'transparent',
+    color: '#94A3B8',
+    border: '1px solid #475569',
+    borderRadius: '6px',
+    padding: '8px 16px',
+    fontSize: '0.9rem',
+    fontWeight: 600,
+    cursor: 'pointer',
   },
   list: {
     listStyleType: 'none',
@@ -789,6 +1077,32 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#E2E8F0',
     fontSize: '0.95rem',
     lineHeight: '1.5',
+  },
+  originalSummaryBox: {
+    marginTop: '16px',
+    backgroundColor: 'rgba(15, 23, 42, 0.4)',
+    border: '1px dashed #475569',
+    borderRadius: '8px',
+    padding: '12px 16px',
+  },
+  originalSummaryHeader: {
+    fontSize: '0.85rem',
+    fontWeight: 600,
+    color: '#94A3B8',
+    marginBottom: '8px',
+  },
+  originalList: {
+    listStyleType: 'none',
+    padding: 0,
+    margin: 0,
+  },
+  originalListItem: {
+    paddingLeft: '1.25rem',
+    position: 'relative',
+    marginBottom: '6px',
+    color: '#94A3B8',
+    fontSize: '0.9rem',
+    lineHeight: '1.4',
   },
   imageSection: {
     flex: '1 1 250px',

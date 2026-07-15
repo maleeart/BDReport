@@ -136,6 +136,19 @@ class handler(BaseHTTPRequestHandler):
             for report in reports:
                 new_slide = clone_slide(prs, slide2)
                 
+                # Delete all extra/redundant shapes from the cloned slide
+                for shape in list(new_slide.shapes):
+                    keep = False
+                    if shape.has_text_frame:
+                        t_text = shape.text_frame.text.strip()
+                        if "ชื่องาน" in t_text or t_text.startswith("งาน") or "วันที่ดำเนินการ" in t_text or "เนื้อหา" in t_text or "รูปประกอบ" in t_text:
+                            keep = True
+                    if not keep:
+                        try:
+                            new_slide.shapes._spTree.remove(shape.element)
+                        except Exception:
+                            pass
+
                 for shape in list(new_slide.shapes):
                     if not shape.has_text_frame:
                         continue
@@ -224,45 +237,84 @@ class handler(BaseHTTPRequestHandler):
                         if not img_list and report.get('base64Image'):
                             img_list = [report.get('base64Image')]
                             
-                        # Limit to max 4 images side-by-side
                         img_list = img_list[:4]
                         
                         if img_list:
                             num_imgs = len(img_list)
                             gap = 100000  # 100,000 EMUs gap
-                            total_gaps_width = gap * (num_imgs - 1) if num_imgs > 1 else 0
-                            col_width = int((width - total_gaps_width) / num_imgs)
                             
-                            for idx, img_base64 in enumerate(img_list):
-                                try:
-                                    header, encoded = img_base64.split(",", 1) if "," in img_base64 else ("", img_base64)
-                                    img_data = base64.b64decode(encoded)
-                                    img_stream = io.BytesIO(img_data)
-                                    
-                                    from PIL import Image
-                                    img = Image.open(img_stream)
-                                    img_width_px, img_height_px = img.size
-                                    
-                                    aspect_ratio = img_width_px / img_height_px
-                                    box_ratio = col_width / height
-                                    
-                                    # Scale keeping aspect ratio inside the column
-                                    if aspect_ratio > box_ratio:
-                                        new_w = col_width
-                                        new_h = col_width / aspect_ratio
-                                    else:
-                                        new_h = height
-                                        new_w = height * aspect_ratio
+                            # Use 2x2 grid layout if 3 or 4 images, side-by-side if 1 or 2 images
+                            use_grid = num_imgs >= 3
+                            
+                            if use_grid:
+                                col_width = int((width - gap) / 2)
+                                row_height = int((height - gap) / 2)
+                                
+                                for idx, img_base64 in enumerate(img_list):
+                                    try:
+                                        r = idx // 2
+                                        c = idx % 2
                                         
-                                    # Center the image in its specific column
-                                    col_left = left + idx * (col_width + gap)
-                                    new_left = col_left + (col_width - new_w) / 2
-                                    new_top = top + (height - new_h) / 2
-                                    
-                                    img_stream.seek(0)
-                                    new_slide.shapes.add_picture(img_stream, int(new_left), int(new_top), int(new_w), int(new_h))
-                                except Exception as img_err:
-                                    print(f"Error adding image {idx}: {img_err}")
+                                        header, encoded = img_base64.split(",", 1) if "," in img_base64 else ("", img_base64)
+                                        img_data = base64.b64decode(encoded)
+                                        img_stream = io.BytesIO(img_data)
+                                        
+                                        from PIL import Image
+                                        img = Image.open(img_stream)
+                                        img_width_px, img_height_px = img.size
+                                        
+                                        aspect_ratio = img_width_px / img_height_px
+                                        box_ratio = col_width / row_height
+                                        
+                                        if aspect_ratio > box_ratio:
+                                            new_w = col_width
+                                            new_h = col_width / aspect_ratio
+                                        else:
+                                            new_h = row_height
+                                            new_w = row_height * aspect_ratio
+                                            
+                                        cell_left = left + c * (col_width + gap)
+                                        cell_top = top + r * (row_height + gap)
+                                        
+                                        new_left = cell_left + (col_width - new_w) / 2
+                                        new_top = cell_top + (row_height - new_h) / 2
+                                        
+                                        img_stream.seek(0)
+                                        new_slide.shapes.add_picture(img_stream, int(new_left), int(new_top), int(new_w), int(new_h))
+                                    except Exception as img_err:
+                                        print(f"Error adding grid image {idx}: {img_err}")
+                            else:
+                                total_gaps_width = gap * (num_imgs - 1) if num_imgs > 1 else 0
+                                col_width = int((width - total_gaps_width) / num_imgs)
+                                
+                                for idx, img_base64 in enumerate(img_list):
+                                    try:
+                                        header, encoded = img_base64.split(",", 1) if "," in img_base64 else ("", img_base64)
+                                        img_data = base64.b64decode(encoded)
+                                        img_stream = io.BytesIO(img_data)
+                                        
+                                        from PIL import Image
+                                        img = Image.open(img_stream)
+                                        img_width_px, img_height_px = img.size
+                                        
+                                        aspect_ratio = img_width_px / img_height_px
+                                        box_ratio = col_width / height
+                                        
+                                        if aspect_ratio > box_ratio:
+                                            new_w = col_width
+                                            new_h = col_width / aspect_ratio
+                                        else:
+                                            new_h = height
+                                            new_w = height * aspect_ratio
+                                            
+                                        col_left = left + idx * (col_width + gap)
+                                        new_left = col_left + (col_width - new_w) / 2
+                                        new_top = top + (height - new_h) / 2
+                                        
+                                        img_stream.seek(0)
+                                        new_slide.shapes.add_picture(img_stream, int(new_left), int(new_top), int(new_w), int(new_h))
+                                    except Exception as img_err:
+                                        print(f"Error adding horizontal image {idx}: {img_err}")
                         else:
                             txBox = new_slide.shapes.add_textbox(left, top, width, height)
                             txBox.text_frame.text = "[ไม่มีรูปประกอบ]"
