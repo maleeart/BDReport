@@ -8,6 +8,18 @@ import copy
 import os
 from pptx import Presentation
 from pptx.util import Pt
+from pptx.oxml.xmlchemy import OxmlElement
+
+def disable_bullets(p):
+    try:
+        pPr = p._p.get_or_add_pPr()
+        for child in list(pPr):
+            if any(tag in child.tag for tag in ['buChar', 'buAutoNum', 'buSzPct', 'buFont', 'buNone']):
+                pPr.remove(child)
+        buNone = OxmlElement('a:buNone')
+        pPr.append(buNone)
+    except Exception as e:
+        print(f"Error disabling bullets: {e}")
 
 def clone_slide(prs, src_slide):
     new_slide = prs.slides.add_slide(src_slide.slide_layout)
@@ -130,14 +142,15 @@ class handler(BaseHTTPRequestHandler):
                     
                     text = shape.text_frame.text.strip()
                     
-                    # Handle small subtitle header and main task title on Slide 2
+                    # Handle subtitle header and main task title on Slide 2
                     if "ชื่องาน" in text or text.startswith("งาน"):
-                        is_main_title = text.startswith("งาน")
+                        is_main_title = "ชื่องาน" in text or text.startswith("งาน")
                         # Capture original run formatting if present
                         src_run = shape.text_frame.paragraphs[0].runs[0] if (len(shape.text_frame.paragraphs) > 0 and len(shape.text_frame.paragraphs[0].runs) > 0) else None
                         
                         shape.text_frame.text = report.get('title', 'Weekly Report')
                         p = shape.text_frame.paragraphs[0]
+                        disable_bullets(p) # Completely disable bullet points on title
                         if len(p.runs) > 0:
                             run = p.runs[0]
                             run.font.name = "TH Sarabun New"
@@ -154,6 +167,7 @@ class handler(BaseHTTPRequestHandler):
                     elif "วันที่ดำเนินการ" in text:
                         shape.text_frame.text = report.get('date', report_date)
                         p = shape.text_frame.paragraphs[0]
+                        disable_bullets(p) # Completely disable bullet points on date
                         if len(p.runs) > 0:
                             run = p.runs[0]
                             run.font.name = "TH Sarabun New"
