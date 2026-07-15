@@ -155,7 +155,7 @@ export async function GET(req: NextRequest) {
           summary = base64Images.length > 0 ? ['ส่งเฉพาะรูปภาพประกอบ'] : ['ไม่มีรายงานข้อความ'];
         }
 
-        let title = base64Images.length > 0 ? 'รายงานรูปภาพ' : 'ไม่มีรายงานข้อความ';
+        let title = base64Images.length > 0 ? 'รายงานผลการดำเนินงานประจำสัปดาห์' : 'ไม่มีรายงานข้อความ';
 
         if (textReports.trim()) {
           const prompt = `Analyze the following daily work report text and return a JSON object containing a short 3-5 word title/subject in Thai (keyword) representing the main work done.

@@ -123,13 +123,24 @@ class handler(BaseHTTPRequestHandler):
                     # Handle small subtitle header and main task title on Slide 2
                     if "ชื่องาน" in text or text.startswith("งาน"):
                         is_main_title = text.startswith("งาน")
+                        # Capture original run formatting if present
+                        src_run = shape.text_frame.paragraphs[0].runs[0] if (len(shape.text_frame.paragraphs) > 0 and len(shape.text_frame.paragraphs[0].runs) > 0) else None
+                        
                         shape.text_frame.text = report.get('title', 'Weekly Report')
                         p = shape.text_frame.paragraphs[0]
                         if len(p.runs) > 0:
                             run = p.runs[0]
                             run.font.name = "TH Sarabun New"
-                            run.font.size = Pt(28) if is_main_title else Pt(14)
+                            run.font.size = Pt(24) if is_main_title else Pt(12)
                             run.font.bold = True
+                            if src_run and src_run.font.color:
+                                try:
+                                    if src_run.font.color.type == 1:
+                                        run.font.color.rgb = src_run.font.color.rgb
+                                    elif src_run.font.color.type == 2:
+                                        run.font.color.theme_color = src_run.font.color.theme_color
+                                except Exception:
+                                    pass
                     elif "วันที่ดำเนินการ" in text:
                         shape.text_frame.text = report.get('date', report_date)
                         p = shape.text_frame.paragraphs[0]
