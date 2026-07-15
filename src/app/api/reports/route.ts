@@ -125,6 +125,7 @@ Return a JSON object containing:
   "summary": ["work 1", "work 2", ...]
 }
 Keep the title and summaries extremely concise, in Thai, and highly professional.
+Do NOT wrap the output in markdown code blocks like \`\`\`json. Output raw JSON only.
 Reports:
 ${textReports}`;
 
@@ -135,21 +136,22 @@ ${textReports}`;
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               contents: [{ parts: [{ text: prompt }] }],
-              generationConfig: { response_mime_type: 'application/json' },
             }),
           }
         );
 
         if (geminiRes.ok) {
           const geminiData = await geminiRes.json();
-          const responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
+          let responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          // Clean up any markdown code block wrapping if present
+          responseText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
           if (responseText) {
             try {
               const parsed = JSON.parse(responseText);
               summary = parsed.summary || summary;
               title = parsed.title || title;
             } catch (err) {
-              console.error('Failed to parse Gemini response', err);
+              console.error('Failed to parse Gemini response', err, 'Response was:', responseText);
             }
           }
         } else {
