@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import sharp from 'sharp';
+import { Jimp } from 'jimp';
 import { db } from '@/lib/firebaseAdmin';
 
 export async function POST(req: NextRequest) {
@@ -65,11 +65,20 @@ export async function POST(req: NextRequest) {
           const arrayBuffer = await lineRes.arrayBuffer();
           const buffer = Buffer.from(arrayBuffer);
 
-          // Compress the image using sharp to fit inside Firestore 1MB document limit
-          const compressedBuffer = await sharp(buffer)
-            .resize({ width: 1000, height: 1000, fit: 'inside', withoutEnlargement: true })
-            .jpeg({ quality: 75 })
-            .toBuffer();
+          // Compress the image using Jimp (100% pure JS, zero native compile dependencies)
+          // to keep the Base64 payload well under the Firestore 1MB document limit
+          const image = await Jimp.read(buffer);
+          
+          // Resize to max dimension of 1000px, keeping aspect ratio automatically
+          if (image.width > 1000 || image.height > 1000) {
+            if (image.width > image.height) {
+              image.resize({ w: 1000 });
+            } else {
+              image.resize({ h: 1000 });
+            }
+          }
+          
+          const compressedBuffer = await image.getBuffer('image/jpeg', { quality: 75 });
 
           const base64Image = `data:image/jpeg;base64,${compressedBuffer.toString('base64')}`;
 

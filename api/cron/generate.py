@@ -13,6 +13,13 @@ def clone_slide(prs, src_slide):
     for shape in src_slide.shapes:
         new_shape_xml = copy.deepcopy(shape.element)
         new_slide.shapes._spTree.append(new_shape_xml)
+    
+    # Copy relationships to preserve template images/graphics
+    for rId, rel in src_slide.part.rels._rels.items():
+        if rId not in new_slide.part.rels._rels:
+            new_slide.part.rels._rels[rId] = rel
+        elif rel.reltype != "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout":
+            new_slide.part.rels._rels[rId] = rel
     return new_slide
 
 class handler(BaseHTTPRequestHandler):
@@ -162,14 +169,16 @@ class handler(BaseHTTPRequestHandler):
                             txBox = new_slide.shapes.add_textbox(left, top, width, height)
                             txBox.text_frame.text = "[ไม่มีรูปประกอบ]"
 
-            # Clone Slide 4 (Closing) to the end
-            if slide4:
-                clone_slide(prs, slide4)
-
-            # Delete the template slides (Slide 2, Slide 3, and original Slide 4)
+            # Move the original Slide 4 (Closing) to the end of the presentation
+            # This preserves its original media relationships perfectly
             id_list = prs.slides._sldIdLst
-            if len(id_list) > 3:
-                del id_list[3]  # Original S4
+            if slide4 and len(id_list) > 3:
+                slide4_id = id_list[3]
+                id_list.remove(slide4_id)
+                id_list.append(slide4_id)
+
+            # Delete the template slides (Slide 2 and Slide 3)
+            # Reverse order (index 2 first, then index 1)
             if len(id_list) > 2:
                 del id_list[2]  # Original S3
             if len(id_list) > 1:
