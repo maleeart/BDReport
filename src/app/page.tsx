@@ -31,9 +31,10 @@ export default function Dashboard() {
   const [thaiWeekRange, setThaiWeekRange] = useState<string>('');
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   
-  // Filtering States
+  // Filtering & Panel States
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>(DEFAULT_KEYWORDS);
   const [customKeywordInput, setCustomKeywordInput] = useState<string>('');
+  const [showFilterConfig, setShowFilterConfig] = useState<boolean>(false);
 
   // Set default week to current week on mount
   useEffect(() => {
@@ -199,51 +200,70 @@ export default function Dashboard() {
           </div>
         </section>
 
-        {/* Reorganized Filter Keywords Section */}
+        {/* Collapsible Filter Keywords Section */}
         {!loading && reports.length > 0 && (
           <section style={styles.filterCard}>
             <div style={styles.filterHeader}>
-              <h3 style={styles.filterTitle}>🔍 กรองข้อมูลรายงานจากคำสำคัญ:</h3>
-              <div style={styles.filterHeaderActions}>
-                <button onClick={handleKeywordSelectAll} style={styles.linkButtonSmall}>เลือกทั้งหมด</button>
-                <span style={{ color: '#475569' }}>|</span>
-                <button onClick={handleKeywordDeselectAll} style={styles.linkButtonSmall}>ล้างทั้งหมด</button>
+              <div style={styles.filterHeaderLeft}>
+                <span style={styles.filterStatusText}>
+                  🔍 เปิดใช้งานตัวกรองข้อความบำรุงรักษาแล้ว (คำสำคัญทำงานอยู่: {selectedKeywords.length} คำ
+                  {customKeywordInput.trim() ? `, เพิ่มเติม: ${customKeywordInput}` : ''})
+                </span>
               </div>
+              <button
+                onClick={() => setShowFilterConfig(!showFilterConfig)}
+                style={styles.toggleFilterButton}
+              >
+                {showFilterConfig ? '▲ ซ่อนตัวเลือกการกรอง' : '⚙️ ปรับแต่งตัวกรอง'}
+              </button>
             </div>
             
-            <div style={styles.filterGrid}>
-              {/* Left Column: Pill Tags Selection */}
-              <div style={styles.filterColLeft}>
-                <h4 style={styles.colLabel}>🏷️ คำสำคัญของงานบำรุงรักษาอาคารและบริเวณ:</h4>
-                <div style={styles.chipsContainer}>
-                  {DEFAULT_KEYWORDS.map(kw => {
-                    const isSelected = selectedKeywords.includes(kw);
-                    return (
-                      <button
-                        key={kw}
-                        onClick={() => handleToggleKeyword(kw)}
-                        style={isSelected ? styles.keywordChipActive : styles.keywordChipInactive}
-                      >
-                        {isSelected ? '✓ ' : ''}{kw}
-                      </button>
-                    );
-                  })}
+            {showFilterConfig && (
+              <div style={styles.filterContent}>
+                <div style={styles.filterSubHeader}>
+                  <h4 style={styles.colLabel}>🛠️ ตั้งค่าคำสำคัญในการค้นหา:</h4>
+                  <div style={styles.filterHeaderActions}>
+                    <button onClick={handleKeywordSelectAll} style={styles.linkButtonSmall}>เลือกทั้งหมด</button>
+                    <span style={{ color: '#475569' }}>|</span>
+                    <button onClick={handleKeywordDeselectAll} style={styles.linkButtonSmall}>ล้างทั้งหมด</button>
+                  </div>
+                </div>
+                
+                <div style={styles.filterGrid}>
+                  {/* Left Column: Pill Tags Selection */}
+                  <div style={styles.filterColLeft}>
+                    <h4 style={styles.colLabelSmall}>คำสำคัญเริ่มต้น:</h4>
+                    <div style={styles.chipsContainer}>
+                      {DEFAULT_KEYWORDS.map(kw => {
+                        const isSelected = selectedKeywords.includes(kw);
+                        return (
+                          <button
+                            key={kw}
+                            onClick={() => handleToggleKeyword(kw)}
+                            style={isSelected ? styles.keywordChipActive : styles.keywordChipInactive}
+                          >
+                            {isSelected ? '✓ ' : ''}{kw}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  
+                  {/* Right Column: Custom Text Input */}
+                  <div style={styles.filterColRight}>
+                    <h4 style={styles.colLabelSmall}>คำค้นหาเพิ่มเติมอื่น ๆ (คั่นด้วยจุลภาค , ):</h4>
+                    <input
+                      id="custom-keywords"
+                      type="text"
+                      value={customKeywordInput}
+                      onChange={(e) => setCustomKeywordInput(e.target.value)}
+                      placeholder="เช่น ซ่อมบำรุง, ติดตั้ง, ปรับปรุง..."
+                      style={styles.customKeywordInput}
+                    />
+                  </div>
                 </div>
               </div>
-              
-              {/* Right Column: Custom Text Input */}
-              <div style={styles.filterColRight}>
-                <h4 style={styles.colLabel}>✏️ คำค้นหาเพิ่มเติมอื่น ๆ (คั่นด้วยจุลภาค , ):</h4>
-                <input
-                  id="custom-keywords"
-                  type="text"
-                  value={customKeywordInput}
-                  onChange={(e) => setCustomKeywordInput(e.target.value)}
-                  placeholder="เช่น ซ่อมบำรุง, ติดตั้ง, ปรับปรุง..."
-                  style={styles.customKeywordInput}
-                />
-              </div>
-            </div>
+            )}
           </section>
         )}
 
@@ -289,7 +309,7 @@ export default function Dashboard() {
         {!loading && reports.length > 0 && filteredReports.length === 0 && (
           <div style={styles.emptyCard}>
             <p style={{ fontSize: '1.2rem', marginBottom: '8px' }}>🔍 ไม่พบข้อมูลที่ตรงกับคำสำคัญที่คุณเลือก</p>
-            <p style={{ color: '#9CA3AF', fontSize: '0.9rem' }}>ลองคลิกเลือกคีย์เวิร์ดของงานบำรุงรักษาด้านบน หรือล้างตัวกรองทั้งหมด</p>
+            <p style={{ color: '#9CA3AF', fontSize: '0.9rem' }}>ลองคลิกปรับแต่งตัวกรองด้านบนเพื่อตั้งค่าคำค้นหาใหม่</p>
           </div>
         )}
 
@@ -491,27 +511,54 @@ const styles: Record<string, React.CSSProperties> = {
     transition: 'all 0.2s',
   },
   filterCard: {
-    background: 'rgba(30, 41, 59, 0.5)',
+    background: 'rgba(30, 41, 59, 0.4)',
     backdropFilter: 'blur(10px)',
-    border: '1px solid rgba(255, 255, 255, 0.08)',
+    border: '1px solid rgba(255, 255, 255, 0.05)',
     borderRadius: '16px',
-    padding: '24px',
+    padding: '16px 24px',
     marginBottom: '24px',
-    boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.2)',
+    boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.1)',
   },
   filterHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: '12px',
+  },
+  filterHeaderLeft: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  filterStatusText: {
+    fontSize: '0.95rem',
+    color: '#94A3B8',
+    fontWeight: 500,
+  },
+  toggleFilterButton: {
+    backgroundColor: '#1E293B',
+    color: '#E2E8F0',
+    border: '1.5px solid #475569',
+    borderRadius: '8px',
+    padding: '8px 16px',
+    fontSize: '0.85rem',
+    fontWeight: 600,
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+  },
+  filterContent: {
+    marginTop: '16px',
+    borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+    paddingTop: '16px',
+  },
+  filterSubHeader: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: '16px',
     flexWrap: 'wrap',
     gap: '12px',
-  },
-  filterTitle: {
-    fontSize: '1.1rem',
-    fontWeight: 700,
-    color: '#E2E8F0',
-    margin: 0,
   },
   filterHeaderActions: {
     display: 'flex',
@@ -546,6 +593,12 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '12px',
   },
   colLabel: {
+    fontSize: '1rem',
+    fontWeight: 700,
+    color: '#E2E8F0',
+    margin: 0,
+  },
+  colLabelSmall: {
     fontSize: '0.9rem',
     fontWeight: 600,
     color: '#94A3B8',
