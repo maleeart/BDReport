@@ -157,46 +157,7 @@ export async function GET(req: NextRequest) {
           summary = base64Images.length > 0 ? ['ไม่มีข้อความประกอบ'] : ['ไม่มีรายงานข้อความ'];
         }
 
-        let title = base64Images.length > 0 ? 'รายงานผลการดำเนินงานประจำสัปดาห์' : 'ไม่มีรายงานข้อความ';
-
-        if (textReports.trim()) {
-          const prompt = `Analyze the following daily work report text and return a JSON object containing a short 3-5 word title/subject in Thai (keyword) representing the main work done.
-Return JSON format:
-{
-  "title": "A short 3-5 word Thai keyword title"
-}
-Do NOT wrap the output in markdown code blocks like \`\`\`json. Output raw JSON only.
-Reports:
-${textReports}`;
-
-          const geminiRes = await fetch(
-            `https://generativelanguage.googleapis.com/v1/models/gemini-3.5-flash:generateContent?key=${geminiApiKey}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }],
-              }),
-            }
-          );
-
-          if (geminiRes.ok) {
-            const geminiData = await geminiRes.json();
-            let responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
-            responseText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
-            if (responseText) {
-              try {
-                const parsed = JSON.parse(responseText);
-                title = parsed.title || title;
-              } catch (err) {
-                console.error('Failed to parse Gemini response', err, 'Response was:', responseText);
-              }
-            }
-          } else {
-            const errText = await geminiRes.text();
-            console.error(`Gemini API error: ${geminiRes.statusText} - Response: ${errText}`);
-          }
-        }
+        const title = 'รายงานผลการดำเนินงานประจำสัปดาห์';
 
         // Format date in Bangkok timezone using representative report timestamp
         const reportDate = representativeReport.createdAt?.toDate 
