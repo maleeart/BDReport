@@ -1,0 +1,45 @@
+Total slides: 4
+
+--- Slide 1 ---
+Shape 1: Name="Title 3", Type=PLACEHOLDER (14), Text="รายงานผลการดำเนินงานประจำสัปดาห์ แผนกบำรุงรักษาอาคารและบริเวณ กองบริหาร กฟผ.สนง.ไทรน้อย"
+Shape 2: Name="Group 2", Type=GROUP (6), Text=""
+Shape 3: Name="TextBox 1", Type=TEXT_BOX (17), Text="Update (วันที่)"
+
+--- Slide 2 ---
+Shape 1: Name="Title 1", Type=TEXT_BOX (17), Text="ชื่องาน"
+Shape 2: Name="TextBox 4", Type=TEXT_BOX (17), Text="วันที่ดำเนินการ"
+Shape 3: Name="Group 3", Type=GROUP (6), Text=""
+Shape 4: Name="Picture 4", Type=PICTURE (13), Text=""
+Shape 5: Name="Table 2", Type=TABLE (19), Text=""
+Shape 6: Name="Picture 5", Type=PICTURE (13), Text=""
+Shape 7: Name="Picture 6", Type=PICTURE (13), Text=""
+Shape 8: Name="Table 9", Type=TABLE (19), Text=""
+Shape 9: Name="Picture 10", Type=PICTURE (13), Text=""
+Shape 10: Name="Picture 11", Type=PICTURE (13), Text=""
+Shape 11: Name="Table 12", Type=TABLE (19), Text=""
+Shape 12: Name="Picture 13", Type=PICTURE (13), Text=""
+Shape 13: Name="Picture 14", Type=PICTURE (13), Text=""
+Shape 14: Name="Title 1", Type=TEXT_BOX (17), Text="เนื้อหา……………………………………………………………………………………………………………………………………………………………………………………………………………………….."
+Shape 15: Name="Rectangle 18", Type=AUTO_SHAPE (1), Text="รูปประกอบ"
+
+--- Slide 3 ---
+Shape 1: Name="Title 1", Type=TEXT_BOX (17), Text="ชื่องาน"
+Shape 2: Name="TextBox 4", Type=TEXT_BOX (17), Text="วันที่ดำเนินการ"
+Shape 3: Name="Group 3", Type=GROUP (6), Text=""
+Shape 4: Name="Picture 4", Type=PICTURE (13), Text=""
+Shape 5: Name="Table 2", Type=TABLE (19), Text=""
+Shape 6: Name="Picture 5", Type=PICTURE (13), Text=""
+Shape 7: Name="Picture 6", Type=PICTURE (13), Text=""
+Shape 8: Name="Table 9", Type=TABLE (19), Text=""
+Shape 9: Name="Picture 10", Type=PICTURE (13), Text=""
+Shape 10: Name="Picture 11", Type=PICTURE (13), Text=""
+Shape 11: Name="Table 12", Type=TABLE (19), Text=""
+Shape 12: Name="Picture 13", Type=PICTURE (13), Text=""
+Shape 13: Name="Picture 14", Type=PICTURE (13), Text=""
+Shape 14: Name="Title 1", Type=TEXT_BOX (17), Text="เนื้อหา……………………………………………………………………………………………………………………………………………………………………………………………………………………….."
+Shape 15: Name="Rectangle 18", Type=AUTO_SHAPE (1), Text="รูปประกอบ"
+
+--- Slide 4 ---
+Shape 1: Name="Title 3", Type=PLACEHOLDER (14), Text="จบการนำเสนอ"
+Shape 2: Name="Group 2", Type=GROUP (6), Text=""
+Shape 3: Name="Picture 3", Type=PICTURE (13), Text=""

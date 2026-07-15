@@ -1,13 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
-import pptxgen from 'pptxgenjs';
-import { db } from '@/lib/firebaseAdmin';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import os from 'os';
+import path from 'path';
+import fs from 'fs';
+
+const execPromise = promisify(exec);
 
 export async function GET(req: NextRequest) {
+  let jsonFilePath = '';
+  let pptxFilePath = '';
+
   try {
     // 1. Authorize Cron (support both Bearer header and query param for easy browser downloads)
     const authHeader = req.headers.get('authorization');
     const { searchParams } = new URL(req.url);
     const querySecret = searchParams.get('secret');
+    const dateParam = searchParams.get('date') || new Date().toISOString().split('T')[0];
     const cronSecret = process.env.CRON_SECRET;
 
     const isAuthorized = !cronSecret || 
@@ -18,209 +27,72 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const geminiApiKey = process.env.GEMINI_API_KEY;
-    if (!geminiApiKey) {
-      return NextResponse.json({ error: 'Missing GEMINI_API_KEY' }, { status: 500 });
+    // 2. Fetch report data from our reports API
+    const host = req.headers.get('host') || 'localhost:3000';
+    const protocol = req.url.startsWith('https') ? 'https' : 'http';
+    const reportsUrl = `${protocol}://${host}/api/reports?date=${dateParam}`;
+
+    const reportsRes = await fetch(reportsUrl);
+    if (!reportsRes.ok) {
+      const errMsg = await reportsRes.text();
+      return NextResponse.json({ error: `Failed to fetch reports: ${errMsg}` }, { status: 500 });
     }
 
-    // 2. Fetch today's reports
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const snapshot = await db
-      .collection('line_reports')
-      .where('createdAt', '>=', today)
-      .get();
-
-    if (snapshot.empty) {
-      return NextResponse.json({ message: 'No reports found for today' });
+    const reportData = await reportsRes.json();
+    if (!reportData.reports || reportData.reports.length === 0) {
+      return NextResponse.json({ message: 'No reports found for this date', date: reportData.date });
     }
 
-    // Group reports by userId
-    const userReportsMap: Record<string, any[]> = {};
-    snapshot.docs.forEach((doc: any) => {
-      const data = doc.data();
-      const userId = data.userId;
-      if (!userReportsMap[userId]) {
-        userReportsMap[userId] = [];
-      }
-      userReportsMap[userId].push(data);
-    });
+    // 3. Write data to a temporary JSON file for the Python script to consume
+    const tempDir = os.tmpdir();
+    const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    jsonFilePath = path.join(tempDir, `report-data-${uniqueId}.json`);
+    pptxFilePath = path.join(tempDir, `report-${uniqueId}.pptx`);
 
-    const userSummaries: Array<{
-      userId: string;
-      summary: string[];
-      highlight: string;
-      base64Image?: string;
-    }> = [];
+    fs.writeFileSync(jsonFilePath, JSON.stringify(reportData, null, 2), 'utf-8');
 
-    // 3. Summarize each user's reports using Gemini API
-    for (const [userId, reports] of Object.entries(userReportsMap)) {
-      const textReports = reports
-        .filter((r) => r.type === 'text')
-        .map((r) => r.content)
-        .join('\n');
+    // 4. Run the Python generator script (supporting multiple Python binary names)
+    let command = `python scripts/generate_report.py "${jsonFilePath}" "${pptxFilePath}"`;
+    let runSuccess = false;
+    let runError: any = null;
 
-      const imageReport = reports.find((r) => r.type === 'image');
-
-      let summary: string[] = ['No text report submitted'];
-      let highlight = 'No text highlights';
-
-      if (textReports.trim()) {
-        const prompt = `Analyze and summarize the following daily work reports for a team member.
-Return a JSON object containing:
-{
-  "summary": ["task 1", "task 2", ...],
-  "highlight": "Short one-sentence highlight of their day"
-}
-Keep summaries extremely concise and professional.
-Reports:
-${textReports}`;
-
-        const geminiRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: prompt }] }],
-              generationConfig: { responseMimeType: 'application/json' },
-            }),
-          }
-        );
-
-        if (geminiRes.ok) {
-          const geminiData = await geminiRes.json();
-          const responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (responseText) {
-            try {
-              const parsed = JSON.parse(responseText);
-              summary = parsed.summary || summary;
-              highlight = parsed.highlight || highlight;
-            } catch (err) {
-              console.error('Failed to parse Gemini response', err);
-            }
-          }
-        } else {
-          console.error(`Gemini API error: ${geminiRes.statusText}`);
-        }
-      }
-
-      userSummaries.push({
-        userId,
-        summary,
-        highlight,
-        base64Image: imageReport?.base64Image,
-      });
+    try {
+      await execPromise(command);
+      runSuccess = true;
+    } catch (err: any) {
+      runError = err;
     }
 
-    // 4. Generate PPTX using pptxgenjs
-    const pptx = new pptxgen();
-    pptx.title = 'Daily Work Report';
-
-    // Slide 1: Cover Slide
-    const slide1 = pptx.addSlide();
-    slide1.background = { color: '121214' };
-    slide1.addText('BDReport', {
-      x: 0.5,
-      y: 2.0,
-      w: 9.0,
-      h: 1.0,
-      fontSize: 48,
-      bold: true,
-      color: '8B5CF6',
-      fontFace: 'Arial',
-    });
-    slide1.addText(`Daily Team Status Update\nDate: ${today.toLocaleDateString()}`, {
-      x: 0.5,
-      y: 3.2,
-      w: 9.0,
-      h: 1.0,
-      fontSize: 20,
-      color: 'FFFFFF',
-      fontFace: 'Arial',
-    });
-
-    // Slide 2: Team Summary Overview
-    const slide2 = pptx.addSlide();
-    slide2.background = { color: '1A1A1E' };
-    slide2.addText('Team Overview Highlight', {
-      x: 0.5,
-      y: 0.5,
-      w: 9.0,
-      h: 0.5,
-      fontSize: 24,
-      bold: true,
-      color: '8B5CF6',
-    });
-
-    const highlightText = userSummaries
-      .map((us, index) => `${index + 1}. User ${us.userId.substring(0, 8)}: ${us.highlight}`)
-      .join('\n\n');
-
-    slide2.addText(highlightText || 'No highlights today.', {
-      x: 0.5,
-      y: 1.2,
-      w: 9.0,
-      h: 5.0,
-      fontSize: 16,
-      color: 'FFFFFF',
-      fontFace: 'Arial',
-    });
-
-    // Slide 3+: User-specific Slides
-    for (const us of userSummaries) {
-      const slide = pptx.addSlide();
-      slide.background = { color: '121214' };
-
-      // Title
-      slide.addText(`Status: User ${us.userId.substring(0, 8)}`, {
-        x: 0.5,
-        y: 0.5,
-        w: 9.0,
-        h: 0.5,
-        fontSize: 24,
-        bold: true,
-        color: '8B5CF6',
-      });
-
-      // Left Column: Text Summary
-      const summaryText = us.summary.map((task) => `• ${task}`).join('\n');
-      slide.addText(summaryText, {
-        x: 0.5,
-        y: 1.2,
-        w: 4.8,
-        h: 5.0,
-        fontSize: 14,
-        color: 'FFFFFF',
-        fontFace: 'Arial',
-      });
-
-      // Right Column: Image (Base64)
-      if (us.base64Image) {
-        slide.addImage({
-          data: us.base64Image,
-          x: 5.5,
-          y: 1.2,
-          w: 4.0,
-          h: 4.5,
-        });
-      } else {
-        slide.addText('[No image uploaded today]', {
-          x: 5.5,
-          y: 3.0,
-          w: 4.0,
-          h: 1.0,
-          fontSize: 14,
-          color: '9CA3AF',
-        });
+    if (!runSuccess) {
+      try {
+        command = `python3 scripts/generate_report.py "${jsonFilePath}" "${pptxFilePath}"`;
+        await execPromise(command);
+        runSuccess = true;
+      } catch (err: any) {
+        runError = err;
       }
     }
 
-    // 5. Generate PPTX buffer
-    const dateStr = today.toISOString().split('T')[0];
-    const data = await pptx.write({ outputType: 'nodebuffer' });
-    const buffer = Buffer.from(data as any);
+    if (!runSuccess) {
+      try {
+        command = `py scripts/generate_report.py "${jsonFilePath}" "${pptxFilePath}"`;
+        await execPromise(command);
+        runSuccess = true;
+      } catch (err: any) {
+        runError = err;
+      }
+    }
+
+    if (!runSuccess) {
+      throw new Error(`Python execution failed: ${runError?.message || 'Unknown error'}`);
+    }
+
+    // 5. Read the generated PPTX file
+    if (!fs.existsSync(pptxFilePath)) {
+      throw new Error('PPTX file was not generated by the python script.');
+    }
+
+    const buffer = fs.readFileSync(pptxFilePath);
 
     // 6. Optional: Upload to Discord if Webhook is set
     const discordUrl = process.env.DISCORD_WEBHOOK_URL;
@@ -228,9 +100,9 @@ ${textReports}`;
       try {
         const formData = new FormData();
         const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
-        formData.append('file', blob, `report-${dateStr}.pptx`);
+        formData.append('file', blob, `report-${dateParam}.pptx`);
         formData.append('payload_json', JSON.stringify({
-          content: `📊 **BDReport Daily PowerPoint Generated**\nDate: ${dateStr}`
+          content: `📊 **BDReport PowerPoint Generated from Template**\nDate: ${reportData.date}`
         }));
         await fetch(discordUrl, {
           method: 'POST',
@@ -242,14 +114,28 @@ ${textReports}`;
     }
 
     // 7. Return file download response
-    return new Response(buffer, {
+    const response = new Response(buffer, {
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-        'Content-Disposition': `attachment; filename="report-${dateStr}.pptx"`,
+        'Content-Disposition': `attachment; filename="report-${dateParam}.pptx"`,
       },
     });
+
+    return response;
   } catch (error: any) {
     console.error('PPTX generation error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
+  } finally {
+    // Cleanup temporary files
+    try {
+      if (jsonFilePath && fs.existsSync(jsonFilePath)) {
+        fs.unlinkSync(jsonFilePath);
+      }
+      if (pptxFilePath && fs.existsSync(pptxFilePath)) {
+        fs.unlinkSync(pptxFilePath);
+      }
+    } catch (cleanupErr) {
+      console.error('Failed to cleanup temporary files:', cleanupErr);
+    }
   }
 }

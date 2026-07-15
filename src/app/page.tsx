@@ -1,65 +1,448 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import React, { useState, useEffect } from 'react';
+
+interface Report {
+  userId: string;
+  title: string;
+  date: string;
+  summary: string[];
+  base64Image: string | null;
+}
+
+export default function Dashboard() {
+  const [selectedDate, setSelectedDate] = useState<string>('');
+  const [reports, setReports] = useState<Report[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [thaiDate, setThaiDate] = useState<string>('');
+
+  // Set default date to today in local time zone YYYY-MM-DD
+  useEffect(() => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    setSelectedDate(`${year}-${month}-${day}`);
+  }, []);
+
+  const fetchReports = async (dateStr: string) => {
+    if (!dateStr) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/reports?date=${dateStr}`);
+      if (!res.ok) {
+        throw new Error('ไม่สามารถดึงข้อมูลรายงานได้');
+      }
+      const data = await res.json();
+      setReports(data.reports || []);
+      setThaiDate(data.date || '');
+    } catch (err: any) {
+      setError(err.message || 'เกิดข้อผิดพลาดในการโหลดข้อมูล');
+      setReports([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedDate) {
+      fetchReports(selectedDate);
+    }
+  }, [selectedDate]);
+
+  const handleDownload = () => {
+    // Open in new tab to trigger browser file download
+    window.open(`/api/cron/generate?secret=24052538&date=${selectedDate}`, '_blank');
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div style={styles.container}>
+      <header style={styles.header}>
+        <div style={styles.logoContainer}>
+          <div style={styles.logoBadge}>BD</div>
+          <h1 style={styles.logoText}>BDReport Control Panel</h1>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+        <p style={styles.subtitle}>ระบบสรุปรายงานการปฏิบัติงานประจำวันอัตโนมัติ</p>
+      </header>
+
+      <main style={styles.main}>
+        {/* Date Selector Section */}
+        <section style={styles.controlCard}>
+          <div style={styles.controlGroup}>
+            <label style={styles.label} htmlFor="date-picker">เลือกวันที่ดูรายงาน:</label>
+            <input
+              id="date-picker"
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              style={styles.dateInput}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+          </div>
+
+          <div style={styles.actionGroup}>
+            <button
+              onClick={() => fetchReports(selectedDate)}
+              disabled={loading}
+              style={styles.refreshButton}
+            >
+              🔄 รีเฟรชข้อมูล
+            </button>
+            <button
+              onClick={handleDownload}
+              disabled={reports.length === 0}
+              style={{
+                ...styles.downloadButton,
+                opacity: reports.length === 0 ? 0.6 : 1,
+                cursor: reports.length === 0 ? 'not-allowed' : 'pointer',
+              }}
+            >
+              📊 สร้างรายงาน PowerPoint (.pptx)
+            </button>
+          </div>
+        </section>
+
+        {/* Date Indicator */}
+        {thaiDate && (
+          <div style={styles.dateHeader}>
+            <span>📅 รายงานประจำวันที่: </span>
+            <strong style={styles.dateHighlight}>{thaiDate}</strong>
+          </div>
+        )}
+
+        {/* Status Messages */}
+        {loading && (
+          <div style={styles.loadingContainer}>
+            <div style={styles.spinner}></div>
+            <p>กำลังค้นหาข้อมูลจากระบบ...</p>
+          </div>
+        )}
+
+        {error && (
+          <div style={styles.errorCard}>
+            <p>⚠️ {error}</p>
+          </div>
+        )}
+
+        {/* Reports List */}
+        {!loading && !error && reports.length === 0 && (
+          <div style={styles.emptyCard}>
+            <p style={{ fontSize: '1.2rem', marginBottom: '8px' }}>📭 ไม่พบรายงานของวันนี้</p>
+            <p style={{ color: '#9CA3AF', fontSize: '0.9rem' }}>สมาชิกในทีมยังไม่ได้ส่งรายงานผ่านแชทบอท LINE</p>
+          </div>
+        )}
+
+        {!loading && reports.length > 0 && (
+          <div style={styles.reportsGrid}>
+            {reports.map((report) => (
+              <article key={report.userId} style={styles.reportCard}>
+                <div style={styles.reportHeader}>
+                  <div style={styles.userBadge}>
+                    User ID: {report.userId.substring(0, 8)}...
+                  </div>
+                  <span style={styles.reportTime}>🕒 {report.date}</span>
+                </div>
+
+                <h3 style={styles.reportTitle}>{report.title}</h3>
+
+                <div style={styles.cardContent}>
+                  <div style={styles.textSection}>
+                    <h4 style={styles.sectionLabel}>📝 สรุปรายละเอียดงาน:</h4>
+                    <ul style={styles.list}>
+                      {report.summary.map((task, idx) => (
+                        <li key={idx} style={styles.listItem}>{task}</li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div style={styles.imageSection}>
+                    <h4 style={styles.sectionLabel}>🖼️ รูปภาพประกอบ:</h4>
+                    {report.base64Image ? (
+                      <div style={styles.imageWrapper}>
+                        <img
+                          src={report.base64Image}
+                          alt="ภาพประกอบรายงาน"
+                          style={styles.image}
+                        />
+                      </div>
+                    ) : (
+                      <div style={styles.noImage}>ไม่มีรูปถ่ายแนบมาด้วย</div>
+                    )}
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
       </main>
+
+      <footer style={styles.footer}>
+        <p>© 2026 BDReport - ขับเคลื่อนด้วยพลังแห่งความเร็วแบบ Ponytail และ Gemini AI</p>
+      </footer>
     </div>
   );
 }
+
+const styles: Record<string, React.CSSProperties> = {
+  container: {
+    backgroundColor: '#0F172A',
+    color: '#F8FAFC',
+    minHeight: '100vh',
+    display: 'flex',
+    flexDirection: 'column',
+    fontFamily: "'Inter', 'Segoe UI', Roboto, sans-serif",
+    padding: '40px 20px',
+  },
+  header: {
+    maxWidth: '1200px',
+    width: '100%',
+    margin: '0 auto 30px auto',
+    textAlign: 'center',
+  },
+  logoContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '12px',
+    marginBottom: '8px',
+  },
+  logoBadge: {
+    background: 'linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)',
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: '1.5rem',
+    width: '45px',
+    height: '45px',
+    borderRadius: '10px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0 4px 15px rgba(139, 92, 246, 0.4)',
+  },
+  logoText: {
+    fontSize: '2.2rem',
+    fontWeight: 800,
+    background: 'linear-gradient(to right, #C084FC, #F472B6)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+  },
+  subtitle: {
+    color: '#94A3B8',
+    fontSize: '1rem',
+  },
+  main: {
+    maxWidth: '1200px',
+    width: '100%',
+    margin: '0 auto',
+    flex: 1,
+  },
+  controlCard: {
+    background: 'rgba(30, 41, 59, 0.7)',
+    backdropFilter: 'blur(10px)',
+    border: '1px solid rgba(255, 255, 255, 0.05)',
+    borderRadius: '16px',
+    padding: '24px',
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '20px',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: '30px',
+    boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3)',
+  },
+  controlGroup: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  },
+  label: {
+    fontSize: '1rem',
+    fontWeight: 600,
+    color: '#E2E8F0',
+  },
+  dateInput: {
+    backgroundColor: '#0F172A',
+    border: '1.5px solid #475569',
+    borderRadius: '8px',
+    color: '#F8FAFC',
+    padding: '10px 14px',
+    fontSize: '0.95rem',
+    outline: 'none',
+    transition: 'border-color 0.2s',
+  },
+  actionGroup: {
+    display: 'flex',
+    gap: '12px',
+    flexWrap: 'wrap',
+  },
+  refreshButton: {
+    backgroundColor: '#334155',
+    color: '#F8FAFC',
+    border: 'none',
+    borderRadius: '8px',
+    padding: '12px 20px',
+    fontSize: '0.95rem',
+    fontWeight: 600,
+    cursor: 'pointer',
+    transition: 'background-color 0.2s',
+  },
+  downloadButton: {
+    background: 'linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%)',
+    color: '#FFFFFF',
+    border: 'none',
+    borderRadius: '8px',
+    padding: '12px 24px',
+    fontSize: '0.95rem',
+    fontWeight: 600,
+    boxShadow: '0 4px 14px rgba(139, 92, 246, 0.3)',
+    transition: 'all 0.2s',
+  },
+  dateHeader: {
+    fontSize: '1.1rem',
+    marginBottom: '20px',
+    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+    borderLeft: '4px solid #8B5CF6',
+    padding: '10px 16px',
+    borderRadius: '0 8px 8px 0',
+  },
+  dateHighlight: {
+    color: '#C084FC',
+  },
+  loadingContainer: {
+    textAlign: 'center',
+    padding: '60px 0',
+    color: '#94A3B8',
+  },
+  spinner: {
+    width: '40px',
+    height: '40px',
+    border: '4px solid rgba(255, 255, 255, 0.1)',
+    borderTop: '4px solid #8B5CF6',
+    borderRadius: '50%',
+    animation: 'spin 1s linear infinite',
+    margin: '0 auto 16px auto',
+  },
+  errorCard: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    border: '1px solid rgba(239, 68, 68, 0.3)',
+    color: '#FCA5A5',
+    borderRadius: '12px',
+    padding: '16px',
+    textAlign: 'center',
+    marginBottom: '30px',
+  },
+  emptyCard: {
+    background: 'rgba(30, 41, 59, 0.3)',
+    border: '1px dashed #475569',
+    borderRadius: '16px',
+    padding: '60px 20px',
+    textAlign: 'center',
+  },
+  reportsGrid: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '24px',
+  },
+  reportCard: {
+    background: 'rgba(30, 41, 59, 0.5)',
+    border: '1px solid rgba(255, 255, 255, 0.05)',
+    borderRadius: '16px',
+    padding: '24px',
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+  },
+  reportHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '14px',
+  },
+  userBadge: {
+    backgroundColor: '#3b82f61a',
+    color: '#60A5FA',
+    border: '1px solid #3b82f633',
+    borderRadius: '9999px',
+    padding: '4px 12px',
+    fontSize: '0.85rem',
+    fontWeight: 600,
+  },
+  reportTime: {
+    color: '#94A3B8',
+    fontSize: '0.85rem',
+  },
+  reportTitle: {
+    fontSize: '1.4rem',
+    fontWeight: 700,
+    color: '#FFFFFF',
+    marginBottom: '20px',
+    borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+    paddingBottom: '10px',
+  },
+  cardContent: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '24px',
+  },
+  textSection: {
+    flex: '2 1 400px',
+  },
+  sectionLabel: {
+    fontSize: '0.95rem',
+    fontWeight: 600,
+    color: '#94A3B8',
+    marginBottom: '10px',
+  },
+  list: {
+    listStyleType: 'none',
+    padding: 0,
+    margin: 0,
+  },
+  listItem: {
+    paddingLeft: '1.25rem',
+    position: 'relative',
+    marginBottom: '8px',
+    color: '#E2E8F0',
+    fontSize: '0.95rem',
+    lineHeight: '1.5',
+  },
+  imageSection: {
+    flex: '1 1 250px',
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  imageWrapper: {
+    borderRadius: '8px',
+    overflow: 'hidden',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    backgroundColor: '#0F172A',
+    alignSelf: 'flex-start',
+    width: '100%',
+    maxHeight: '200px',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  image: {
+    width: '100%',
+    height: 'auto',
+    maxHeight: '200px',
+    objectFit: 'contain',
+  },
+  noImage: {
+    border: '1px dashed #475569',
+    borderRadius: '8px',
+    height: '120px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#94A3B8',
+    fontSize: '0.9rem',
+    backgroundColor: 'rgba(15, 23, 42, 0.5)',
+  },
+  footer: {
+    marginTop: '50px',
+    textAlign: 'center',
+    color: '#64748B',
+    fontSize: '0.85rem',
+  },
+};
