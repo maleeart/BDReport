@@ -168,8 +168,14 @@ class handler(BaseHTTPRequestHandler):
                                 run.font.size = src_run.font.size if (src_run and src_run.font.size) else Pt(16)
                                 if src_run:
                                     run.font.bold = src_run.font.bold
-                                    if src_run.font.color and src_run.font.color.rgb:
-                                        run.font.color.rgb = src_run.font.color.rgb
+                                    if src_run.font.color:
+                                        try:
+                                            if src_run.font.color.type == 1: # RGB
+                                                run.font.color.rgb = src_run.font.color.rgb
+                                            elif src_run.font.color.type == 2: # Theme Color
+                                                run.font.color.theme_color = src_run.font.color.theme_color
+                                        except Exception:
+                                            pass
                     elif "รูปประกอบ" in text:
                         left = shape.left
                         top = shape.top
