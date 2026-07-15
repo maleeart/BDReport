@@ -7,6 +7,7 @@ import base64
 import copy
 import os
 from pptx import Presentation
+from pptx.util import Pt
 
 def clone_slide(prs, src_slide):
     new_slide = prs.slides.add_slide(src_slide.slide_layout)
@@ -99,6 +100,11 @@ class handler(BaseHTTPRequestHandler):
             for shape in slide1.shapes:
                 if shape.has_text_frame and "Update" in shape.text_frame.text:
                     shape.text_frame.text = f"Update {report_date}"
+                    p = shape.text_frame.paragraphs[0]
+                    if len(p.runs) > 0:
+                        p.runs[0].font.name = "TH Sarabun New"
+                        p.runs[0].font.size = Pt(18)
+                        p.runs[0].font.bold = True
 
             # Slide 2 and 3 are templates
             slide2 = prs.slides[1]
@@ -114,18 +120,56 @@ class handler(BaseHTTPRequestHandler):
                     
                     text = shape.text_frame.text.strip()
                     
-                    if "ชื่องาน" in text:
-                        shape.text_frame.text = report.get('title', 'Daily Report')
+                    # Handle small subtitle header and main task title on Slide 2
+                    if "ชื่องาน" in text or text.startswith("งาน"):
+                        is_main_title = text.startswith("งาน")
+                        shape.text_frame.text = report.get('title', 'Weekly Report')
+                        p = shape.text_frame.paragraphs[0]
+                        if len(p.runs) > 0:
+                            run = p.runs[0]
+                            run.font.name = "TH Sarabun New"
+                            run.font.size = Pt(28) if is_main_title else Pt(14)
+                            run.font.bold = True
                     elif "วันที่ดำเนินการ" in text:
                         shape.text_frame.text = report.get('date', report_date)
+                        p = shape.text_frame.paragraphs[0]
+                        if len(p.runs) > 0:
+                            run = p.runs[0]
+                            run.font.name = "TH Sarabun New"
+                            run.font.size = Pt(14)
                     elif "เนื้อหา" in text:
                         bullets = report.get('summary', [])
-                        shape.text_frame.text = ""
+                        
                         tf = shape.text_frame
                         tf.word_wrap = True
+                        
+                        # Preserve original template formatting if possible
+                        first_p = tf.paragraphs[0]
+                        src_run = first_p.runs[0] if len(first_p.runs) > 0 else None
+                        
+                        # Clear default placeholder text from the template's first paragraph
+                        first_p.text = ""
+                        
+                        # Remove other paragraphs from the placeholder if any
+                        while len(tf.paragraphs) > 1:
+                            p_el = tf.paragraphs[1]._p
+                            p_el.getparent().remove(p_el)
+                            
+                        # Populate bullets with native Level 0 styling
                         for index, bullet in enumerate(bullets):
                             p = tf.add_paragraph() if index > 0 else tf.paragraphs[0]
-                            p.text = f"• {bullet}"
+                            p.level = 0
+                            p.text = bullet
+                            
+                            # Apply unified premium Thai font settings
+                            if len(p.runs) > 0:
+                                run = p.runs[0]
+                                run.font.name = src_run.font.name if (src_run and src_run.font.name) else "TH Sarabun New"
+                                run.font.size = src_run.font.size if (src_run and src_run.font.size) else Pt(16)
+                                if src_run:
+                                    run.font.bold = src_run.font.bold
+                                    if src_run.font.color and src_run.font.color.rgb:
+                                        run.font.color.rgb = src_run.font.color.rgb
                     elif "รูปประกอบ" in text:
                         left = shape.left
                         top = shape.top
