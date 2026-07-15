@@ -247,8 +247,17 @@ class handler(BaseHTTPRequestHandler):
                             use_grid = num_imgs >= 3
                             
                             if use_grid:
-                                col_width = int((width - gap) / 2)
-                                row_height = int((height - gap) / 2)
+                                # Cluster cells closer together in the center
+                                # Use 85% of the total width for the grid area, and center it horizontally
+                                grid_width = int(width * 0.85)
+                                grid_left = left + int((width - grid_width) / 2)
+                                
+                                grid_height = int(height * 0.95)
+                                grid_top = top + int((height - grid_height) / 2)
+                                
+                                grid_gap = 150000  # 150,000 EMUs (about 0.15 inches)
+                                col_width = int((grid_width - grid_gap) / 2)
+                                row_height = int((grid_height - grid_gap) / 2)
                                 
                                 for idx, img_base64 in enumerate(img_list):
                                     try:
@@ -273,8 +282,8 @@ class handler(BaseHTTPRequestHandler):
                                             new_h = row_height
                                             new_w = row_height * aspect_ratio
                                             
-                                        cell_left = left + c * (col_width + gap)
-                                        cell_top = top + r * (row_height + gap)
+                                        cell_left = grid_left + c * (col_width + grid_gap)
+                                        cell_top = grid_top + r * (row_height + grid_gap)
                                         
                                         new_left = cell_left + (col_width - new_w) / 2
                                         new_top = cell_top + (row_height - new_h) / 2
@@ -392,7 +401,18 @@ class handler(BaseHTTPRequestHandler):
             # 7. Send Response File
             self.send_response(200)
             self.send_header('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation')
-            self.send_header('Content-Disposition', f'attachment; filename="report-{week_param}.pptx"')
+            # Parse week number and year
+            year = "2026"
+            week_no = week_param
+            if "-W" in week_param:
+                parts = week_param.split("-W")
+                year = parts[0]
+                week_no = parts[1]
+            
+            filename = f"Weekly Report (หบอว-ธ.) (week {week_no}-{year}).pptx"
+            import urllib.parse
+            safe_filename = urllib.parse.quote(filename)
+            self.send_header('Content-Disposition', f"attachment; filename*=UTF-8''{safe_filename}")
             self.send_header('Content-Length', len(pptx_bytes))
             self.end_headers()
             self.wfile.write(pptx_bytes)

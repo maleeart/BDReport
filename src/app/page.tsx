@@ -251,7 +251,7 @@ export default function Dashboard() {
           <div style={styles.logoBadge}>EGAT</div>
           <h1 style={styles.logoText}>BDReport Control Panel</h1>
         </div>
-        <p style={styles.subtitle}>ระบบสรุปรายงานการปฏิบัติงานประจำสัปดาห์อัตโนมัติ (บำรุงรักษาอาคารและบริเวณ)</p>
+        <p style={styles.subtitle}>ระบบสรุปรายงานการปฏิบัติงานประจำสัปดาห์อัตโนมัติ (แผนกบำรุงรักษาอาคารและบริเวณ)</p>
       </header>
 
       <main style={styles.main}>
@@ -285,7 +285,7 @@ export default function Dashboard() {
                 cursor: (loading || reports.length === 0) ? 'not-allowed' : 'pointer',
               }}
             >
-              📦 โหลดรูปภาพทั้งหมด (.zip)
+              📦 Backup photo
             </button>
             <button
               onClick={handleDownload}

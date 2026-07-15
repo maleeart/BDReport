@@ -26,7 +26,16 @@ export async function GET(req: NextRequest) {
     }
 
     const contentType = generateRes.headers.get('Content-Type') || 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
-    const contentDisposition = generateRes.headers.get('Content-Disposition') || `attachment; filename="report-${weekParam}.pptx"`;
+    let weekNumber = weekParam;
+    let year = '2026';
+    if (weekParam.includes('-W')) {
+      const parts = weekParam.split('-W');
+      year = parts[0];
+      weekNumber = parts[1];
+    }
+    const filename = `Weekly Report (หบอว-ธ.) (week ${weekNumber}-${year}).pptx`;
+    const safeFilename = encodeURIComponent(filename);
+    const contentDisposition = generateRes.headers.get('Content-Disposition') || `attachment; filename*=UTF-8''${safeFilename}`;
     const contentLength = generateRes.headers.get('Content-Length');
 
     const buffer = await generateRes.arrayBuffer();
