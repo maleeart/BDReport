@@ -92,20 +92,29 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ date: thaiWeekRange, reports: [] });
     }
 
-    // Group by userId
-    const userReportsMap: Record<string, any[]> = {};
+    // Group by userId AND dateStr (YYYY-MM-DD) to generate a separate slide per daily entry for each user
+    const groupMap: Record<string, { userId: string; dateStr: string; reports: any[] }> = {};
+    
     snapshot.docs.forEach((doc: any) => {
       const data = doc.data();
       const userId = data.userId;
-      if (!userReportsMap[userId]) {
-        userReportsMap[userId] = [];
+      
+      const createdAt = data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt);
+      const dateStr = createdAt.toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' });
+      
+      const key = `${userId}_${dateStr}`;
+      if (!groupMap[key]) {
+        groupMap[key] = { userId, dateStr, reports: [] };
       }
-      userReportsMap[userId].push(data);
+      groupMap[key].reports.push(data);
     });
 
     const reportsList: any[] = [];
 
-    for (const [userId, reports] of Object.entries(userReportsMap)) {
+    // Process each group (user + day)
+    for (const group of Object.values(groupMap)) {
+      const { userId, dateStr, reports } = group;
+      
       const textReports = reports
         .filter((r) => r.type === 'text')
         .map((r) => r.content)
@@ -118,10 +127,10 @@ export async function GET(req: NextRequest) {
       let title = imageReport ? 'รายงานรูปภาพ' : 'ไม่มีรายงานข้อความ';
 
       if (textReports.trim()) {
-        const prompt = `Analyze and summarize the following weekly work reports for a team member.
+        const prompt = `Analyze and summarize the following daily work reports for a team member.
 Return a JSON object containing:
 {
-  "title": "A short 3-5 word keyword title/subject of the main work done during the week",
+  "title": "A short 3-5 word keyword title/subject of the main work done on this day",
   "summary": ["work 1", "work 2", ...]
 }
 Keep the title and summaries extremely concise, in Thai, and highly professional.
@@ -129,7 +138,6 @@ Do NOT wrap the output in markdown code blocks like \`\`\`json. Output raw JSON 
 Reports:
 ${textReports}`;
 
-        // Using stable v1 endpoint with the updated gemini-3.5-flash model available in 2026
         const geminiRes = await fetch(
           `https://generativelanguage.googleapis.com/v1/models/gemini-3.5-flash:generateContent?key=${geminiApiKey}`,
           {
@@ -144,7 +152,6 @@ ${textReports}`;
         if (geminiRes.ok) {
           const geminiData = await geminiRes.json();
           let responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
-          // Clean up any markdown code block wrapping if present
           responseText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
           if (responseText) {
             try {
@@ -159,7 +166,6 @@ ${textReports}`;
           const errText = await geminiRes.text();
           console.error(`Gemini API error: ${geminiRes.statusText} - Response: ${errText}`);
           
-          // Diagnostic helper
           try {
             const listRes = await fetch(`https://generativelanguage.googleapis.com/v1/models?key=${geminiApiKey}`);
             if (listRes.ok) {
@@ -174,7 +180,8 @@ ${textReports}`;
       }
 
       // Format date for the slide (e.g. DD/MM/YYYY) in Bangkok timezone
-      const reportDateStr = monday.toLocaleDateString('th-TH', {
+      const displayDate = new Date(`${dateStr}T00:00:00+07:00`);
+      const reportDateStr = displayDate.toLocaleDateString('th-TH', {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
@@ -189,6 +196,16 @@ ${textReports}`;
         base64Image: imageReport?.base64Image || null,
       });
     }
+
+    // Sort reportsList chronologically so that slides follow calendar order
+    reportsList.sort((a, b) => {
+      // Parse DD/MM/YYYY to date objects
+      const parseDate = (dStr: string) => {
+        const [d, m, y] = dStr.split('/').map(Number);
+        return new Date(y - 543, m - 1, d); // Convert Buddhist era back to AD
+      };
+      return parseDate(a.date).getTime() - parseDate(b.date).getTime();
+    });
 
     return NextResponse.json({
       date: thaiWeekRange,
