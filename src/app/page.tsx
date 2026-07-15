@@ -271,6 +271,50 @@ export default function Dashboard() {
 
   return (
     <div style={styles.container}>
+      <style>{`
+        @media (max-width: 600px) {
+          /* Header */
+          .bdreport-logo-container { gap: 10px !important; }
+          .bdreport-logo-img { width: 44px !important; height: 44px !important; }
+          .bdreport-title { font-size: 1rem !important; }
+          .bdreport-eyebrow { display: none; }
+          .bdreport-tagline { display: none; }
+
+          /* Status bar */
+          .bdreport-status-bar { flex-direction: column !important; align-items: flex-start !important; gap: 4px !important; padding: 6px 12px !important; }
+
+          /* Control card */
+          .bdreport-control-card { padding: 16px !important; flex-direction: column !important; align-items: stretch !important; }
+          .bdreport-selectors-row { flex-direction: column !important; gap: 12px !important; }
+          .bdreport-control-group { flex-direction: column !important; align-items: flex-start !important; gap: 6px !important; }
+          .bdreport-control-group label { font-size: 0.85rem !important; }
+          .bdreport-control-group input,
+          .bdreport-control-group select { width: 100% !important; font-size: 0.85rem !important; padding: 8px 10px !important; }
+          .bdreport-action-group { flex-direction: column !important; gap: 8px !important; }
+          .bdreport-action-group button { width: 100% !important; font-size: 0.85rem !important; padding: 10px 16px !important; }
+
+          /* Report cards */
+          .bdreport-report-card { padding: 14px !important; }
+          .bdreport-report-header { flex-direction: column !important; align-items: flex-start !important; gap: 6px !important; }
+          .bdreport-header-left { flex-wrap: wrap !important; gap: 6px !important; }
+          .bdreport-badge { font-size: 0.75rem !important; padding: 3px 8px !important; }
+          .bdreport-report-title { font-size: 1rem !important; padding-left: 0 !important; }
+          .bdreport-card-content { flex-direction: column !important; padding-left: 0 !important; }
+          .bdreport-images-grid { gap: 6px !important; }
+          .bdreport-image-wrapper { max-width: 100% !important; flex: 1 1 80px !important; }
+
+          /* Meta row */
+          .bdreport-meta-row { flex-direction: column !important; align-items: flex-start !important; gap: 8px !important; }
+          .bdreport-date-header { font-size: 0.9rem !important; }
+
+          /* Filter card */
+          .bdreport-filter-header { flex-direction: column !important; align-items: flex-start !important; }
+
+          /* Chips */
+          .bdreport-chips { gap: 6px !important; }
+          .bdreport-chip { font-size: 0.8rem !important; padding: 6px 12px !important; }
+        }
+      `}</style>
       {/* Light / Dark Mode Toggle button */}
       <button 
         onClick={() => setDarkMode(!darkMode)} 
@@ -287,19 +331,19 @@ export default function Dashboard() {
 
       {/* Header: Logo, Title */}
       <header style={styles.header}>
-        <div style={styles.logoContainer}>
-          <img src="/bdreport_logo.jpg" alt="BDReport Logo" style={styles.logoImage} />
+        <div style={styles.logoContainer} className="bdreport-logo-container">
+          <img src="/bdreport_logo.jpg" alt="BDReport Logo" style={styles.logoImage} className="bdreport-logo-img" />
           <div style={styles.titleBlock}>
-            <div style={styles.titleEyebrow}>การไฟฟ้าฝ่ายผลิตแห่งประเทศไทย · กฟผ.</div>
-            <h1 style={styles.logoText}>ระบบสรุปรายงานการปฏิบัติงานประจำสัปดาห์</h1>
-            <div style={styles.titleTagline}>Smart Maintenance · Seamless Reporting · Empowering EGAT Infrastructure</div>
+            <div style={styles.titleEyebrow} className="bdreport-eyebrow">การไฟฟ้าฝ่ายผลิตแห่งประเทศไทย · กฟผ.</div>
+            <h1 style={styles.logoText} className="bdreport-title">ระบบสรุปรายงานการปฏิบัติงานประจำสัปดาห์</h1>
+            <div style={styles.titleTagline} className="bdreport-tagline">Smart Maintenance · Seamless Reporting · Empowering EGAT Infrastructure</div>
           </div>
         </div>
       </header>
 
       <main style={styles.main}>
-        {/* Status bar: Bot status & Connected Group — sits just above the week selector */}
-        <div style={styles.topStatusLine}>
+        {/* Status bar: Bot status & Connected Group */}
+        <div style={styles.topStatusLine} className="bdreport-status-bar">
           <div style={styles.topStatusLeft}>
             <span style={styles.statusOnlineBadge}>●</span>
             <span style={styles.topStatusLabel}>LINE Bot Online</span>
@@ -311,10 +355,10 @@ export default function Dashboard() {
             </strong>
           </div>
         </div>
-        {/* 3. Date & Group Selector Section (Moved Down Here) */}
-        <section style={styles.controlCard}>
-          <div style={styles.selectorsRow}>
-            <div style={styles.controlGroup}>
+        {/* Date & Group Selector Section */}
+        <section style={styles.controlCard} className="bdreport-control-card">
+          <div style={styles.selectorsRow} className="bdreport-selectors-row">
+            <div style={styles.controlGroup} className="bdreport-control-group">
               <label style={styles.label} htmlFor="week-picker">เลือกสัปดาห์ที่ดูรายงาน:</label>
               <input
                 id="week-picker"
@@ -327,7 +371,7 @@ export default function Dashboard() {
 
             {/* Group Selection Dropdown */}
             {!loading && groups.length > 0 && (
-              <div style={styles.controlGroup}>
+              <div style={styles.controlGroup} className="bdreport-control-group">
                 <label style={styles.label} htmlFor="group-select">เลือกกลุ่มแชท LINE:</label>
                 <select
                   id="group-select"
@@ -349,7 +393,7 @@ export default function Dashboard() {
             )}
           </div>
 
-          <div style={styles.actionGroup}>
+          <div style={styles.actionGroup} className="bdreport-action-group">
             <button
               onClick={() => fetchReports(selectedWeek)}
               disabled={loading}
@@ -451,8 +495,8 @@ export default function Dashboard() {
 
         {/* Date Indicator and Select Actions */}
         {thaiWeekRange && (
-          <div style={styles.metaRow}>
-            <div style={styles.dateHeader}>
+          <div style={styles.metaRow} className="bdreport-meta-row">
+            <div style={styles.dateHeader} className="bdreport-date-header">
               <span>📅 รายงานประจำสัปดาห์: </span>
               <strong style={styles.dateHighlight}>{thaiWeekRange}</strong>
             </div>
@@ -508,26 +552,31 @@ export default function Dashboard() {
               return (
                 <article 
                   key={originalIndex} 
+                  className="bdreport-report-card"
                   style={{
                     ...styles.reportCard,
                     borderColor: isSelected ? '#EAB308' : styles.reportCardBorderColor?.borderColor,
                     opacity: isSelected ? 1 : 0.6,
                     backgroundColor: styles.reportCardBg?.backgroundColor,
                     boxShadow: styles.reportCardShadow?.boxShadow,
+                    border: `1px solid ${isSelected ? '#EAB308' : (styles.reportCardBorderColor?.borderColor || 'rgba(255,255,255,0.05)')}`,
+                    borderRadius: '16px',
+                    padding: '24px',
+                    transition: 'all 0.2s',
                   }}
                 >
-                  <div style={styles.reportHeader}>
-                    <div style={styles.headerLeft}>
+                  <div style={styles.reportHeader} className="bdreport-report-header">
+                    <div style={styles.headerLeft} className="bdreport-header-left">
                       <input
                         type="checkbox"
                         checked={isSelected}
                         onChange={() => handleToggleSelect(originalIndex)}
                         style={styles.checkbox}
                       />
-                      <div style={styles.userBadge}>
+                      <div style={styles.userBadge} className="bdreport-badge">
                         ผู้รายงาน: {report.displayName || `ผู้ใช้ LINE (${report.userId.substring(0, 6)})`}
                       </div>
-                      <div style={styles.groupBadge}>
+                      <div style={styles.groupBadge} className="bdreport-badge">
                         ห้องแชท: {report.groupName || 'กลุ่มทั่วไป'}
                       </div>
                       {hasBeenEdited && (
@@ -539,9 +588,9 @@ export default function Dashboard() {
                     </span>
                   </div>
 
-                  <h3 style={styles.reportTitle}>{report.title}</h3>
+                  <h3 style={styles.reportTitle} className="bdreport-report-title">{report.title}</h3>
 
-                  <div style={styles.cardContent}>
+                  <div style={styles.cardContent} className="bdreport-card-content">
                     {/* Text / Summary Section */}
                     <div style={styles.textSection}>
                       <div style={styles.textSectionHeader}>
@@ -625,9 +674,9 @@ export default function Dashboard() {
                     <div style={styles.imageSection}>
                       <h4 style={styles.sectionLabel}>🖼️ รูปภาพประกอบ:</h4>
                       {report.base64Images && report.base64Images.length > 0 ? (
-                        <div style={styles.imagesGrid}>
+                        <div style={styles.imagesGrid} className="bdreport-images-grid">
                           {report.base64Images.map((img, idx) => (
-                            <div key={idx} style={styles.imageWrapper}>
+                            <div key={idx} style={styles.imageWrapper} className="bdreport-image-wrapper">
                               <img
                                 src={img}
                                 alt={`ภาพประกอบ ${idx + 1}`}
