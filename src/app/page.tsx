@@ -706,7 +706,7 @@ export default function Dashboard() {
       </main>
 
       <footer style={styles.footer}>
-        <p>© 2026 EGAT BDReport - พัฒนาขึ้นสำหรับกลุ่มบำรุงรักษาอาคารและบริเวณ</p>
+        <p>© 2026 EGAT BDReport &nbsp;·&nbsp; ผู้ดูแลระบบ: นายตวงเพชร ชัยยานนท์ วศ.4 หบอว-ธ. กบห-ธ. ชธธ.</p>
       </footer>
     </div>
   );
