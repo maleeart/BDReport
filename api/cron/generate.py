@@ -410,7 +410,6 @@ class handler(BaseHTTPRequestHandler):
                 week_no = parts[1]
             
             filename = f"Weekly Report (หบอว-ธ.) (week {week_no}-{year}).pptx"
-            import urllib.parse
             safe_filename = urllib.parse.quote(filename)
             self.send_header('Content-Disposition', f"attachment; filename*=UTF-8''{safe_filename}")
             self.send_header('Content-Length', len(pptx_bytes))
