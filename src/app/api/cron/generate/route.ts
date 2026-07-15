@@ -4,11 +4,17 @@ import { db } from '@/lib/firebaseAdmin';
 
 export async function GET(req: NextRequest) {
   try {
-    // 1. Authorize Cron
+    // 1. Authorize Cron (support both Bearer header and query param for easy browser downloads)
     const authHeader = req.headers.get('authorization');
+    const { searchParams } = new URL(req.url);
+    const querySecret = searchParams.get('secret');
     const cronSecret = process.env.CRON_SECRET;
 
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    const isAuthorized = !cronSecret || 
+      (authHeader === `Bearer ${cronSecret}`) || 
+      (querySecret === cronSecret);
+
+    if (!isAuthorized) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
