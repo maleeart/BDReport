@@ -153,7 +153,8 @@ ${textReports}`;
             }
           }
         } else {
-          console.error(`Gemini API error: ${geminiRes.statusText}`);
+          const errText = await geminiRes.text();
+          console.error(`Gemini API error: ${geminiRes.statusText} - Response: ${errText}`);
         }
       }
 
