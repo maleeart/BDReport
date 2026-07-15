@@ -144,11 +144,9 @@ export async function GET(req: NextRequest) {
         userReportsMap[userId] = [];
       }
       userReportsMap[userId].push(data);
-      if (data.groupId) {
-        groupIdsSet.add(data.groupId);
-      } else {
-        groupIdsSet.add('private');
-      }
+      
+      const repGroupId = data.groupId && data.groupId !== 'private' ? data.groupId : `private_${userId}`;
+      groupIdsSet.add(repGroupId);
     });
 
     const reportsList: any[] = [];
@@ -195,8 +193,10 @@ export async function GET(req: NextRequest) {
     if (groupIds.length > 0) {
       await Promise.all(
         groupIds.map(async (gid) => {
-          if (gid === 'private') {
-            groupNamesMap[gid] = 'แชทส่วนตัว';
+          if (gid.startsWith('private_')) {
+            const uid = gid.substring(8);
+            const uName = userNamesMap[uid] || `ผู้ใช้ LINE (${uid.substring(0, 6)})`;
+            groupNamesMap[gid] = `แชทส่วนตัว - ${uName}`;
             return;
           }
           try {
@@ -293,13 +293,15 @@ export async function GET(req: NextRequest) {
           timeZone: 'Asia/Bangkok',
         });
 
-        const repGroupId = representativeReport.groupId || 'private';
+        const repGroupId = representativeReport.groupId && representativeReport.groupId !== 'private'
+          ? representativeReport.groupId
+          : `private_${userId}`;
 
         reportsList.push({
           userId,
           displayName: userNamesMap[userId] || `ผู้ใช้ LINE (${userId.substring(0, 6)})`,
           groupId: repGroupId,
-          groupName: groupNamesMap[repGroupId] || (repGroupId === 'private' ? 'แชทส่วนตัว' : 'กลุ่มทั่วไป'),
+          groupName: groupNamesMap[repGroupId] || `แชทส่วนตัว - ${userNamesMap[userId]}`,
           title,
           date: reportDateStr,
           time: reportTimeStr,
