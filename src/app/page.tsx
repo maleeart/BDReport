@@ -11,7 +11,7 @@ interface Report {
   base64Images?: string[];
 }
 
-const DEFAULT_KEYWORDS = ['งาน', 'ใบงาน', 'ซ่อม', 'ใบแจ้งซ่อม', 'เลขที่'];
+const DEFAULT_KEYWORDS = ['งาน', 'ใบงาน', 'ซ่อม', 'ใบแจ้งซ่อม', 'เลขที่', 'เปลี่ยน', 'ตรวจ', 'สำรวจ'];
 
 // Helper to get current YYYY-Www ISO week string from a Date object in browser
 function getISOWeekString(date: Date): string {
@@ -139,6 +139,14 @@ export default function Dashboard() {
     }
   };
 
+  const handleKeywordSelectAll = () => {
+    setSelectedKeywords(DEFAULT_KEYWORDS);
+  };
+
+  const handleKeywordDeselectAll = () => {
+    setSelectedKeywords([]);
+  };
+
   const handleDownload = () => {
     const indicesStr = Array.from(selectedIndices).sort((a, b) => a - b).join(',');
     // Open in new tab to trigger secure server-side proxy file download
@@ -191,36 +199,50 @@ export default function Dashboard() {
           </div>
         </section>
 
-        {/* Filter Keywords Section */}
+        {/* Reorganized Filter Keywords Section */}
         {!loading && reports.length > 0 && (
           <section style={styles.filterCard}>
-            <h3 style={styles.filterTitle}>🔍 กรองข้อมูลรายงานจากคำสำคัญ:</h3>
-            <div style={styles.keywordsRow}>
-              {DEFAULT_KEYWORDS.map(kw => (
-                <label key={kw} style={styles.keywordLabel}>
-                  <input
-                    type="checkbox"
-                    checked={selectedKeywords.includes(kw)}
-                    onChange={() => handleToggleKeyword(kw)}
-                    style={styles.keywordCheckbox}
-                  />
-                  {kw}
-                </label>
-              ))}
+            <div style={styles.filterHeader}>
+              <h3 style={styles.filterTitle}>🔍 กรองข้อมูลรายงานจากคำสำคัญ:</h3>
+              <div style={styles.filterHeaderActions}>
+                <button onClick={handleKeywordSelectAll} style={styles.linkButtonSmall}>เลือกทั้งหมด</button>
+                <span style={{ color: '#475569' }}>|</span>
+                <button onClick={handleKeywordDeselectAll} style={styles.linkButtonSmall}>ล้างทั้งหมด</button>
+              </div>
             </div>
             
-            <div style={styles.customKeywordGroup}>
-              <label style={styles.customKeywordLabel} htmlFor="custom-keywords">
-                คำสำคัญเพิ่มเติม (แยกด้วยเครื่องหมายจุลภาค , เช่น ซ่อมบำรุง, ติดตั้ง):
-              </label>
-              <input
-                id="custom-keywords"
-                type="text"
-                value={customKeywordInput}
-                onChange={(e) => setCustomKeywordInput(e.target.value)}
-                placeholder="พิมพ์คำค้นหาเพิ่มเติม..."
-                style={styles.customKeywordInput}
-              />
+            <div style={styles.filterGrid}>
+              {/* Left Column: Pill Tags Selection */}
+              <div style={styles.filterColLeft}>
+                <h4 style={styles.colLabel}>🏷️ คำสำคัญของงานบำรุงรักษาอาคารและบริเวณ:</h4>
+                <div style={styles.chipsContainer}>
+                  {DEFAULT_KEYWORDS.map(kw => {
+                    const isSelected = selectedKeywords.includes(kw);
+                    return (
+                      <button
+                        key={kw}
+                        onClick={() => handleToggleKeyword(kw)}
+                        style={isSelected ? styles.keywordChipActive : styles.keywordChipInactive}
+                      >
+                        {isSelected ? '✓ ' : ''}{kw}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              
+              {/* Right Column: Custom Text Input */}
+              <div style={styles.filterColRight}>
+                <h4 style={styles.colLabel}>✏️ คำค้นหาเพิ่มเติมอื่น ๆ (คั่นด้วยจุลภาค , ):</h4>
+                <input
+                  id="custom-keywords"
+                  type="text"
+                  value={customKeywordInput}
+                  onChange={(e) => setCustomKeywordInput(e.target.value)}
+                  placeholder="เช่น ซ่อมบำรุง, ติดตั้ง, ปรับปรุง..."
+                  style={styles.customKeywordInput}
+                />
+              </div>
             </div>
           </section>
         )}
@@ -234,7 +256,7 @@ export default function Dashboard() {
             </div>
             {filteredReports.length > 0 && (
               <div style={styles.bulkActions}>
-                <button onClick={handleSelectAll} style={styles.linkButton}>เลือกทั้งหมด</button>
+                <button onClick={handleSelectAll} style={styles.linkButton}>เลือกสไลด์ทั้งหมด ({filteredReports.length})</button>
                 <span style={{ color: '#475569' }}>|</span>
                 <button onClick={handleDeselectAll} style={styles.linkButton}>ล้างทั้งหมด</button>
               </div>
@@ -266,8 +288,8 @@ export default function Dashboard() {
 
         {!loading && reports.length > 0 && filteredReports.length === 0 && (
           <div style={styles.emptyCard}>
-            <p style={{ fontSize: '1.2rem', marginBottom: '8px' }}>🔍 ไม่พบข้อมูลที่ตรงกับคำสำคัญที่คุณกรอง</p>
-            <p style={{ color: '#9CA3AF', fontSize: '0.9rem' }}>ลองเลือกคำสำคัญเพิ่ม หรือติ๊กเลือกคำสำคัญเดิมกลับคืนมา</p>
+            <p style={{ fontSize: '1.2rem', marginBottom: '8px' }}>🔍 ไม่พบข้อมูลที่ตรงกับคำสำคัญที่คุณเลือก</p>
+            <p style={{ color: '#9CA3AF', fontSize: '0.9rem' }}>ลองคลิกเลือกคีย์เวิร์ดของงานบำรุงรักษาด้านบน หรือล้างตัวกรองทั้งหมด</p>
           </div>
         )}
 
@@ -469,52 +491,93 @@ const styles: Record<string, React.CSSProperties> = {
     transition: 'all 0.2s',
   },
   filterCard: {
-    background: 'rgba(30, 41, 59, 0.4)',
-    border: '1px solid rgba(255, 255, 255, 0.05)',
+    background: 'rgba(30, 41, 59, 0.5)',
+    backdropFilter: 'blur(10px)',
+    border: '1px solid rgba(255, 255, 255, 0.08)',
     borderRadius: '16px',
-    padding: '20px 24px',
+    padding: '24px',
     marginBottom: '24px',
-    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+    boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.2)',
+  },
+  filterHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '16px',
+    flexWrap: 'wrap',
+    gap: '12px',
   },
   filterTitle: {
-    fontSize: '1rem',
-    fontWeight: 600,
+    fontSize: '1.1rem',
+    fontWeight: 700,
     color: '#E2E8F0',
-    marginBottom: '14px',
+    margin: 0,
   },
-  keywordsRow: {
+  filterHeaderActions: {
+    display: 'flex',
+    gap: '8px',
+    alignItems: 'center',
+  },
+  linkButtonSmall: {
+    backgroundColor: 'transparent',
+    border: 'none',
+    color: '#C084FC',
+    cursor: 'pointer',
+    fontSize: '0.85rem',
+    fontWeight: 600,
+    textDecoration: 'underline',
+    padding: '2px 6px',
+  },
+  filterGrid: {
     display: 'flex',
     flexWrap: 'wrap',
-    gap: '16px',
-    marginBottom: '16px',
+    gap: '24px',
   },
-  keywordLabel: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    fontSize: '0.95rem',
-    color: '#E2E8F0',
-    cursor: 'pointer',
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    padding: '6px 14px',
-    borderRadius: '20px',
-    border: '1px solid rgba(255, 255, 255, 0.05)',
-    transition: 'all 0.2s',
-  },
-  keywordCheckbox: {
-    width: '16px',
-    height: '16px',
-    accentColor: '#8B5CF6',
-    cursor: 'pointer',
-  },
-  customKeywordGroup: {
+  filterColLeft: {
+    flex: '1 1 500px',
     display: 'flex',
     flexDirection: 'column',
-    gap: '8px',
+    gap: '12px',
   },
-  customKeywordLabel: {
+  filterColRight: {
+    flex: '1 1 300px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px',
+  },
+  colLabel: {
     fontSize: '0.9rem',
+    fontWeight: 600,
     color: '#94A3B8',
+    margin: 0,
+  },
+  chipsContainer: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '10px',
+  },
+  keywordChipActive: {
+    background: 'linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)',
+    color: '#FFFFFF',
+    border: 'none',
+    padding: '8px 16px',
+    borderRadius: '20px',
+    cursor: 'pointer',
+    fontSize: '0.9rem',
+    fontWeight: 600,
+    boxShadow: '0 4px 10px rgba(139, 92, 246, 0.25)',
+    transition: 'all 0.2s',
+  },
+  keywordChipInactive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    color: '#94A3B8',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    padding: '8px 16px',
+    borderRadius: '20px',
+    cursor: 'pointer',
+    fontSize: '0.9rem',
+    fontWeight: 600,
+    transition: 'all 0.2s',
   },
   customKeywordInput: {
     backgroundColor: '#0F172A',
@@ -525,7 +588,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '0.95rem',
     outline: 'none',
     width: '100%',
-    maxWidth: '500px',
     transition: 'border-color 0.2s',
   },
   metaRow: {
