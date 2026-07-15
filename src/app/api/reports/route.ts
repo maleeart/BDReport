@@ -18,11 +18,13 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const dateParam = searchParams.get('date'); // Expects YYYY-MM-DD
 
-    const targetDate = dateParam ? new Date(dateParam) : new Date();
-    const startDate = new Date(targetDate);
-    startDate.setHours(0, 0, 0, 0);
-    const endDate = new Date(targetDate);
-    endDate.setHours(23, 59, 59, 999);
+    // Get YYYY-MM-DD in Asia/Bangkok locale
+    const todayBangkok = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' });
+    const dateStr = dateParam || todayBangkok;
+
+    // Construct start and end dates in Bangkok timezone (+07:00)
+    const startDate = new Date(`${dateStr}T00:00:00+07:00`);
+    const endDate = new Date(`${dateStr}T23:59:59.999+07:00`);
 
     const geminiApiKey = process.env.GEMINI_API_KEY;
     if (!geminiApiKey) {
@@ -34,6 +36,9 @@ export async function GET(req: NextRequest) {
       .where('createdAt', '>=', startDate)
       .where('createdAt', '<=', endDate)
       .get();
+
+    // Use the startDate (local Bangkok date representation) to format the Thai Date string
+    const targetDate = new Date(startDate.getTime());
 
     if (snapshot.empty) {
       return NextResponse.json({ date: formatThaiDate(targetDate), reports: [] });
@@ -60,8 +65,9 @@ export async function GET(req: NextRequest) {
 
       const imageReport = reports.find((r) => r.type === 'image');
 
-      let summary: string[] = ['ไม่มีรายงานข้อความ'];
-      let title = 'รายงานผลงาน';
+      // Define default fallbacks depending on if they sent an image
+      let summary: string[] = imageReport ? ['ส่งเฉพาะรูปภาพประกอบ'] : ['ไม่มีรายงานข้อความ'];
+      let title = imageReport ? 'รายงานรูปภาพ' : 'ไม่มีรายงานข้อความ';
 
       if (textReports.trim()) {
         const prompt = `Analyze and summarize the following daily work reports for a team member.
