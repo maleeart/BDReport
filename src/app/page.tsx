@@ -85,23 +85,15 @@ export default function Dashboard() {
     }
 
     return reports.filter(report => {
-      // Check if it is an image-only or empty report
-      const hasText = report.summary && report.summary.some(line => 
-        line !== 'ส่งเฉพาะรูปภาพประกอบ' && line !== 'ไม่มีรายงานข้อความ'
-      );
-      if (!hasText) {
-        return true; // Keep image-only reports
-      }
-
-      // Check if title or any summary line contains at least one of the active keywords
-      const titleMatches = activeKeywords.some(kw => 
-        report.title.toLowerCase().includes(kw.toLowerCase())
-      );
+      // Check if any summary line contains at least one of the active keywords (body only)
+      // Exclude default placeholder strings
       const summaryMatches = report.summary.some(line => 
+        line !== 'ส่งเฉพาะรูปภาพประกอบ' && 
+        line !== 'ไม่มีรายงานข้อความ' &&
         activeKeywords.some(kw => line.toLowerCase().includes(kw.toLowerCase()))
       );
 
-      return titleMatches || summaryMatches;
+      return summaryMatches;
     });
   };
 

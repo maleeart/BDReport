@@ -126,8 +126,21 @@ export async function GET(req: NextRequest) {
           if (timeDiff <= 60000) { // Proximity within 1 minute
             currentGroup.push(report);
           } else {
-            taskGroups.push(currentGroup);
-            currentGroup = [report];
+            // Time difference is > 1 minute
+            if (report.type === 'image') {
+              // Merge late image-only upload into the latest/previous task group of this user
+              if (currentGroup.length > 0) {
+                currentGroup.push(report);
+              } else if (taskGroups.length > 0) {
+                taskGroups[taskGroups.length - 1].push(report);
+              } else {
+                currentGroup = [report];
+              }
+            } else {
+              // Text message starts a new task group
+              taskGroups.push(currentGroup);
+              currentGroup = [report];
+            }
           }
         }
       }
