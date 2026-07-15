@@ -129,9 +129,9 @@ Do NOT wrap the output in markdown code blocks like \`\`\`json. Output raw JSON 
 Reports:
 ${textReports}`;
 
-        // Using stable v1 endpoint with the updated gemini-2.5-flash model available in 2026
+        // Using stable v1 endpoint with the updated gemini-3.5-flash model available in 2026
         const geminiRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`,
+          `https://generativelanguage.googleapis.com/v1/models/gemini-3.5-flash:generateContent?key=${geminiApiKey}`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
