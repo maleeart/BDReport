@@ -40,7 +40,7 @@ export default function Dashboard() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/reports?week=${weekStr}`);
+      const res = await fetch(`/api/reports?week=${weekStr}&t=${Date.now()}`);
       if (!res.ok) {
         throw new Error('ไม่สามารถดึงข้อมูลรายงานได้');
       }

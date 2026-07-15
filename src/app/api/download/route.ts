@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -32,6 +34,7 @@ export async function GET(req: NextRequest) {
     const headers = new Headers();
     headers.set('Content-Type', contentType);
     headers.set('Content-Disposition', contentDisposition);
+    headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     if (contentLength) {
       headers.set('Content-Length', contentLength);
     }
