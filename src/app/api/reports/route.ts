@@ -140,20 +140,29 @@ export async function GET(req: NextRequest) {
           .map((r) => r.content)
           .join('\n');
 
-        const imageReport = group.find((r) => r.type === 'image');
+        // Collect all images sent in this task group (1-minute window)
+        const imageReports = group.filter((r) => r.type === 'image');
+        const base64Images = imageReports.map((r) => r.base64Image).filter(Boolean);
         const representativeReport = group[0];
 
-        let summary: string[] = imageReport ? ['ส่งเฉพาะรูปภาพประกอบ'] : ['ไม่มีรายงานข้อความ'];
-        let title = imageReport ? 'รายงานรูปภาพ' : 'ไม่มีรายงานข้อความ';
+        // Do not alter or summarize the original text: use it directly as the list of items
+        let summary: string[] = textReports
+          .split('\n')
+          .map((line) => line.trim())
+          .filter(Boolean);
+
+        if (summary.length === 0) {
+          summary = base64Images.length > 0 ? ['ส่งเฉพาะรูปภาพประกอบ'] : ['ไม่มีรายงานข้อความ'];
+        }
+
+        let title = base64Images.length > 0 ? 'รายงานรูปภาพ' : 'ไม่มีรายงานข้อความ';
 
         if (textReports.trim()) {
-          const prompt = `Analyze and summarize the following daily work report for a team member.
-Return a JSON object containing:
+          const prompt = `Analyze the following daily work report text and return a JSON object containing a short 3-5 word title/subject in Thai (keyword) representing the main work done.
+Return JSON format:
 {
-  "title": "A short 3-5 word keyword title/subject of the main work done in this entry",
-  "summary": ["task 1", "task 2", ...]
+  "title": "A short 3-5 word Thai keyword title"
 }
-Keep the title and summaries extremely concise, in Thai, and highly professional.
 Do NOT wrap the output in markdown code blocks like \`\`\`json. Output raw JSON only.
 Reports:
 ${textReports}`;
@@ -176,7 +185,6 @@ ${textReports}`;
             if (responseText) {
               try {
                 const parsed = JSON.parse(responseText);
-                summary = parsed.summary || summary;
                 title = parsed.title || title;
               } catch (err) {
                 console.error('Failed to parse Gemini response', err, 'Response was:', responseText);
@@ -205,7 +213,8 @@ ${textReports}`;
           title,
           date: reportDateStr,
           summary,
-          base64Image: imageReport?.base64Image || null,
+          base64Image: base64Images[0] || null,
+          base64Images: base64Images,
           sortTimestamp: representativeReport.timestamp || 0,
         });
       }

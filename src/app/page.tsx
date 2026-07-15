@@ -8,6 +8,7 @@ interface Report {
   date: string;
   summary: string[];
   base64Image: string | null;
+  base64Images?: string[];
 }
 
 // Helper to get current YYYY-Www ISO week string from a Date object in browser
@@ -142,20 +143,20 @@ export default function Dashboard() {
 
         {!loading && reports.length > 0 && (
           <div style={styles.reportsGrid}>
-            {reports.map((report) => (
-              <article key={report.userId} style={styles.reportCard}>
+            {reports.map((report, rIdx) => (
+              <article key={rIdx} style={styles.reportCard}>
                 <div style={styles.reportHeader}>
                   <div style={styles.userBadge}>
                     User ID: {report.userId.substring(0, 8)}...
                   </div>
-                  <span style={styles.reportTime}>📅 สัปดาห์วันที่ {report.date}</span>
+                  <span style={styles.reportTime}>📅 วันที่ {report.date}</span>
                 </div>
 
                 <h3 style={styles.reportTitle}>{report.title}</h3>
 
                 <div style={styles.cardContent}>
                   <div style={styles.textSection}>
-                    <h4 style={styles.sectionLabel}>📝 สรุปรายละเอียดงานประจำสัปดาห์:</h4>
+                    <h4 style={styles.sectionLabel}>📝 รายละเอียดงาน:</h4>
                     <ul style={styles.list}>
                       {report.summary.map((task, idx) => (
                         <li key={idx} style={styles.listItem}>{task}</li>
@@ -165,7 +166,19 @@ export default function Dashboard() {
 
                   <div style={styles.imageSection}>
                     <h4 style={styles.sectionLabel}>🖼️ รูปภาพประกอบ:</h4>
-                    {report.base64Image ? (
+                    {report.base64Images && report.base64Images.length > 0 ? (
+                      <div style={styles.imagesGrid}>
+                        {report.base64Images.map((img, idx) => (
+                          <div key={idx} style={styles.imageWrapper}>
+                            <img
+                              src={img}
+                              alt={`ภาพประกอบ ${idx + 1}`}
+                              style={styles.image}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    ) : report.base64Image ? (
                       <div style={styles.imageWrapper}>
                         <img
                           src={report.base64Image}
@@ -417,14 +430,20 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
   },
+  imagesGrid: {
+    display: 'flex',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: '8px',
+  },
   imageWrapper: {
     borderRadius: '8px',
     overflow: 'hidden',
     border: '1px solid rgba(255, 255, 255, 0.1)',
     backgroundColor: '#0F172A',
-    alignSelf: 'flex-start',
-    width: '100%',
-    maxHeight: '200px',
+    flex: '1 1 100px',
+    maxWidth: '150px',
+    height: '100px',
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
@@ -432,7 +451,7 @@ const styles: Record<string, React.CSSProperties> = {
   image: {
     width: '100%',
     height: 'auto',
-    maxHeight: '200px',
+    maxHeight: '100px',
     objectFit: 'contain',
   },
   noImage: {
