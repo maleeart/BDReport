@@ -6,6 +6,7 @@ interface Report {
   userId: string;
   title: string;
   date: string;
+  time?: string;
   summary: string[];
   base64Image: string | null;
   base64Images?: string[];
@@ -158,10 +159,10 @@ export default function Dashboard() {
     <div style={styles.container}>
       <header style={styles.header}>
         <div style={styles.logoContainer}>
-          <div style={styles.logoBadge}>BD</div>
+          <div style={styles.logoBadge}>EGAT</div>
           <h1 style={styles.logoText}>BDReport Control Panel</h1>
         </div>
-        <p style={styles.subtitle}>ระบบสรุปรายงานการปฏิบัติงานประจำสัปดาห์อัตโนมัติ</p>
+        <p style={styles.subtitle}>ระบบสรุปรายงานการปฏิบัติงานประจำสัปดาห์อัตโนมัติ (บำรุงรักษาอาคารและบริเวณ)</p>
       </header>
 
       <main style={styles.main}>
@@ -302,14 +303,14 @@ export default function Dashboard() {
         {!loading && !error && reports.length === 0 && (
           <div style={styles.emptyCard}>
             <p style={{ fontSize: '1.2rem', marginBottom: '8px' }}>📭 ไม่พบรายงานของสัปดาห์นี้</p>
-            <p style={{ color: '#9CA3AF', fontSize: '0.9rem' }}>สมาชิกในทีมยังไม่ได้ส่งรายงานผ่านแชทบอท LINE</p>
+            <p style={{ color: '#94A3B8', fontSize: '0.9rem' }}>สมาชิกในทีมยังไม่ได้ส่งรายงานผ่านแชทบอท LINE</p>
           </div>
         )}
 
         {!loading && reports.length > 0 && filteredReports.length === 0 && (
           <div style={styles.emptyCard}>
             <p style={{ fontSize: '1.2rem', marginBottom: '8px' }}>🔍 ไม่พบข้อมูลที่ตรงกับคำสำคัญที่คุณเลือก</p>
-            <p style={{ color: '#9CA3AF', fontSize: '0.9rem' }}>ลองคลิกปรับแต่งตัวกรองด้านบนเพื่อตั้งค่าคำค้นหาใหม่</p>
+            <p style={{ color: '#94A3B8', fontSize: '0.9rem' }}>ลองคลิกปรับแต่งตัวกรองด้านบนเพื่อตั้งค่าคำค้นหาใหม่</p>
           </div>
         )}
 
@@ -324,7 +325,7 @@ export default function Dashboard() {
                   key={originalIndex} 
                   style={{
                     ...styles.reportCard,
-                    borderColor: isSelected ? '#8B5CF6' : 'rgba(255, 255, 255, 0.05)',
+                    borderColor: isSelected ? '#EAB308' : 'rgba(255, 255, 255, 0.05)',
                     opacity: isSelected ? 1 : 0.6,
                   }}
                 >
@@ -340,7 +341,9 @@ export default function Dashboard() {
                         User ID: {report.userId.substring(0, 8)}...
                       </div>
                     </div>
-                    <span style={styles.reportTime}>📅 วันที่ {report.date}</span>
+                    <span style={styles.reportTime}>
+                      📅 วันที่ {report.date} เวลา {report.time || '--:--'} น.
+                    </span>
                   </div>
 
                   <h3 style={styles.reportTitle}>{report.title}</h3>
@@ -390,7 +393,7 @@ export default function Dashboard() {
       </main>
 
       <footer style={styles.footer}>
-        <p>© 2026 BDReport - ขับเคลื่อนด้วยพลังแห่งความเร็วแบบ Ponytail และ Gemini AI</p>
+        <p>© 2026 EGAT BDReport - พัฒนาขึ้นสำหรับกลุ่มบำรุงรักษาอาคารและบริเวณ</p>
       </footer>
     </div>
   );
@@ -420,22 +423,22 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: '8px',
   },
   logoBadge: {
-    background: 'linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)',
-    color: '#FFFFFF',
+    background: 'linear-gradient(135deg, #EAB308 0%, #D97706 100%)',
+    color: '#0F172A',
     fontWeight: 'bold',
-    fontSize: '1.5rem',
-    width: '45px',
-    height: '45px',
-    borderRadius: '10px',
+    fontSize: '1.4rem',
+    width: '60px',
+    height: '42px',
+    borderRadius: '8px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    boxShadow: '0 4px 15px rgba(139, 92, 246, 0.4)',
+    boxShadow: '0 4px 15px rgba(234, 179, 8, 0.3)',
   },
   logoText: {
     fontSize: '2.2rem',
     fontWeight: 800,
-    background: 'linear-gradient(to right, #C084FC, #F472B6)',
+    background: 'linear-gradient(to right, #FBBF24, #F59E0B)',
     WebkitBackgroundClip: 'text',
     WebkitTextFillColor: 'transparent',
   },
@@ -500,14 +503,14 @@ const styles: Record<string, React.CSSProperties> = {
     transition: 'background-color 0.2s',
   },
   downloadButton: {
-    background: 'linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%)',
-    color: '#FFFFFF',
+    background: 'linear-gradient(135deg, #EAB308 0%, #D97706 100%)',
+    color: '#0F172A',
     border: 'none',
     borderRadius: '8px',
     padding: '12px 24px',
     fontSize: '0.95rem',
-    fontWeight: 600,
-    boxShadow: '0 4px 14px rgba(139, 92, 246, 0.3)',
+    fontWeight: 700,
+    boxShadow: '0 4px 14px rgba(234, 179, 8, 0.3)',
     transition: 'all 0.2s',
   },
   filterCard: {
@@ -568,7 +571,7 @@ const styles: Record<string, React.CSSProperties> = {
   linkButtonSmall: {
     backgroundColor: 'transparent',
     border: 'none',
-    color: '#C084FC',
+    color: '#FBBF24',
     cursor: 'pointer',
     fontSize: '0.85rem',
     fontWeight: 600,
@@ -610,7 +613,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '10px',
   },
   keywordChipActive: {
-    background: 'linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)',
+    background: 'linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%)',
     color: '#FFFFFF',
     border: 'none',
     padding: '8px 16px',
@@ -618,7 +621,7 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     fontSize: '0.9rem',
     fontWeight: 600,
-    boxShadow: '0 4px 10px rgba(139, 92, 246, 0.25)',
+    boxShadow: '0 4px 10px rgba(30, 58, 138, 0.25)',
     transition: 'all 0.2s',
   },
   keywordChipInactive: {
@@ -653,13 +656,13 @@ const styles: Record<string, React.CSSProperties> = {
   },
   dateHeader: {
     fontSize: '1.1rem',
-    backgroundColor: 'rgba(139, 92, 246, 0.1)',
-    borderLeft: '4px solid #8B5CF6',
+    backgroundColor: 'rgba(234, 179, 8, 0.1)',
+    borderLeft: '4px solid #EAB308',
     padding: '10px 16px',
     borderRadius: '0 8px 8px 0',
   },
   dateHighlight: {
-    color: '#C084FC',
+    color: '#FBBF24',
   },
   bulkActions: {
     display: 'flex',
@@ -685,7 +688,7 @@ const styles: Record<string, React.CSSProperties> = {
     width: '40px',
     height: '40px',
     border: '4px solid rgba(255, 255, 255, 0.1)',
-    borderTop: '4px solid #8B5CF6',
+    borderTop: '4px solid #EAB308',
     borderRadius: '50%',
     animation: 'spin 1s linear infinite',
     margin: '0 auto 16px auto',
@@ -733,7 +736,7 @@ const styles: Record<string, React.CSSProperties> = {
   checkbox: {
     width: '20px',
     height: '20px',
-    accentColor: '#8B5CF6',
+    accentColor: '#EAB308',
     cursor: 'pointer',
   },
   userBadge: {

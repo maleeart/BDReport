@@ -210,10 +210,18 @@ ${textReports}`;
           timeZone: 'Asia/Bangkok',
         });
 
+        const reportTimeStr = reportDate.toLocaleTimeString('th-TH', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+          timeZone: 'Asia/Bangkok',
+        });
+
         reportsList.push({
           userId,
           title,
           date: reportDateStr,
+          time: reportTimeStr,
           summary,
           base64Image: base64Images[0] || null,
           base64Images: base64Images,
