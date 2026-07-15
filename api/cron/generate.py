@@ -242,88 +242,37 @@ class handler(BaseHTTPRequestHandler):
                         if img_list:
                             num_imgs = len(img_list)
                             gap = 100000  # 100,000 EMUs gap
+                            total_gaps_width = gap * (num_imgs - 1) if num_imgs > 1 else 0
+                            col_width = int((width - total_gaps_width) / num_imgs)
                             
-                            # Use 2x2 grid layout if 3 or 4 images, side-by-side if 1 or 2 images
-                            use_grid = num_imgs >= 3
-                            
-                            if use_grid:
-                                # Cluster cells closer together in the center
-                                # Use 85% of the total width for the grid area, and center it horizontally
-                                grid_width = int(width * 0.85)
-                                grid_left = left + int((width - grid_width) / 2)
-                                
-                                grid_height = int(height * 0.95)
-                                grid_top = top + int((height - grid_height) / 2)
-                                
-                                grid_gap = 150000  # 150,000 EMUs (about 0.15 inches)
-                                col_width = int((grid_width - grid_gap) / 2)
-                                row_height = int((grid_height - grid_gap) / 2)
-                                
-                                for idx, img_base64 in enumerate(img_list):
-                                    try:
-                                        r = idx // 2
-                                        c = idx % 2
+                            for idx, img_base64 in enumerate(img_list):
+                                try:
+                                    header, encoded = img_base64.split(",", 1) if "," in img_base64 else ("", img_base64)
+                                    img_data = base64.b64decode(encoded)
+                                    img_stream = io.BytesIO(img_data)
+                                    
+                                    from PIL import Image
+                                    img = Image.open(img_stream)
+                                    img_width_px, img_height_px = img.size
+                                    
+                                    aspect_ratio = img_width_px / img_height_px
+                                    box_ratio = col_width / height
+                                    
+                                    if aspect_ratio > box_ratio:
+                                        new_w = col_width
+                                        new_h = col_width / aspect_ratio
+                                    else:
+                                        new_h = height
+                                        new_w = height * aspect_ratio
                                         
-                                        header, encoded = img_base64.split(",", 1) if "," in img_base64 else ("", img_base64)
-                                        img_data = base64.b64decode(encoded)
-                                        img_stream = io.BytesIO(img_data)
-                                        
-                                        from PIL import Image
-                                        img = Image.open(img_stream)
-                                        img_width_px, img_height_px = img.size
-                                        
-                                        aspect_ratio = img_width_px / img_height_px
-                                        box_ratio = col_width / row_height
-                                        
-                                        if aspect_ratio > box_ratio:
-                                            new_w = col_width
-                                            new_h = col_width / aspect_ratio
-                                        else:
-                                            new_h = row_height
-                                            new_w = row_height * aspect_ratio
-                                            
-                                        cell_left = grid_left + c * (col_width + grid_gap)
-                                        cell_top = grid_top + r * (row_height + grid_gap)
-                                        
-                                        new_left = cell_left + (col_width - new_w) / 2
-                                        new_top = cell_top + (row_height - new_h) / 2
-                                        
-                                        img_stream.seek(0)
-                                        new_slide.shapes.add_picture(img_stream, int(new_left), int(new_top), int(new_w), int(new_h))
-                                    except Exception as img_err:
-                                        print(f"Error adding grid image {idx}: {img_err}")
-                            else:
-                                total_gaps_width = gap * (num_imgs - 1) if num_imgs > 1 else 0
-                                col_width = int((width - total_gaps_width) / num_imgs)
-                                
-                                for idx, img_base64 in enumerate(img_list):
-                                    try:
-                                        header, encoded = img_base64.split(",", 1) if "," in img_base64 else ("", img_base64)
-                                        img_data = base64.b64decode(encoded)
-                                        img_stream = io.BytesIO(img_data)
-                                        
-                                        from PIL import Image
-                                        img = Image.open(img_stream)
-                                        img_width_px, img_height_px = img.size
-                                        
-                                        aspect_ratio = img_width_px / img_height_px
-                                        box_ratio = col_width / height
-                                        
-                                        if aspect_ratio > box_ratio:
-                                            new_w = col_width
-                                            new_h = col_width / aspect_ratio
-                                        else:
-                                            new_h = height
-                                            new_w = height * aspect_ratio
-                                            
-                                        col_left = left + idx * (col_width + gap)
-                                        new_left = col_left + (col_width - new_w) / 2
-                                        new_top = top + (height - new_h) / 2
-                                        
-                                        img_stream.seek(0)
-                                        new_slide.shapes.add_picture(img_stream, int(new_left), int(new_top), int(new_w), int(new_h))
-                                    except Exception as img_err:
-                                        print(f"Error adding horizontal image {idx}: {img_err}")
+                                    col_left = left + idx * (col_width + gap)
+                                    new_left = col_left + (col_width - new_w) / 2
+                                    new_top = top + (height - new_h) / 2
+                                    
+                                    img_stream.seek(0)
+                                    new_slide.shapes.add_picture(img_stream, int(new_left), int(new_top), int(new_w), int(new_h))
+                                except Exception as img_err:
+                                    print(f"Error adding image {idx}: {img_err}")
                         else:
                             txBox = new_slide.shapes.add_textbox(left, top, width, height)
                             txBox.text_frame.text = "[ไม่มีรูปประกอบ]"
@@ -409,7 +358,7 @@ class handler(BaseHTTPRequestHandler):
                 year = parts[0]
                 week_no = parts[1]
             
-            filename = f"Weekly Report (หบอว-ธ.) (week {week_no}-{year}).pptx"
+            filename = f"Weekly Report (EGAT IOT) (week {week_no}-{year}).pptx"
             safe_filename = urllib.parse.quote(filename)
             self.send_header('Content-Disposition', f"attachment; filename*=UTF-8''{safe_filename}")
             self.send_header('Content-Length', len(pptx_bytes))

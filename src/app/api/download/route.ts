@@ -27,21 +27,33 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: `PPTX generation failed: ${errMsg}` }, { status: generateRes.status });
     }
 
-    // Resolve group name for the filename
-    let groupName = 'หบอว-ธ.';
-    if (groupIdParam && groupIdParam !== 'all') {
-      if (groupIdParam === 'private') {
-        groupName = 'แชทส่วนตัว';
-      } else {
-        try {
-          const groupDoc = await db.collection('line_groups').doc(groupIdParam).get();
-          const groupData = groupDoc.data();
-          if (groupDoc.exists && groupData && groupData.groupName) {
-            groupName = groupData.groupName;
-          }
-        } catch (err) {
-          console.error('Error fetching group name for download filename:', err);
+    // Resolve group name for the filename. Default to 'EGAT IOT' as clarified by the user.
+    let groupName = 'EGAT IOT';
+
+    // Find the first cached actual group name from firestore line_groups
+    try {
+      const groupsSnapshot = await db.collection('line_groups').get();
+      const actualGroups = groupsSnapshot.docs
+        .map(doc => doc.data()?.groupName)
+        .filter(name => name && !name.startsWith('แชทส่วนตัว') && !name.startsWith('private') && !name.startsWith('กลุ่ม LINE'));
+      
+      if (actualGroups.length > 0) {
+        groupName = actualGroups[0];
+      }
+    } catch (err) {
+      console.error('Error looking up default group name:', err);
+    }
+
+    // If a specific actual group is selected, override with its name
+    if (groupIdParam && groupIdParam !== 'all' && !groupIdParam.startsWith('private_')) {
+      try {
+        const groupDoc = await db.collection('line_groups').doc(groupIdParam).get();
+        const groupData = groupDoc.data();
+        if (groupDoc.exists && groupData && groupData.groupName) {
+          groupName = groupData.groupName;
         }
+      } catch (err) {
+        console.error('Error fetching selected group name for filename:', err);
       }
     }
 
