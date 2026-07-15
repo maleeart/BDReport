@@ -310,6 +310,10 @@ export default function Dashboard() {
           /* Filter card */
           .bdreport-filter-header { flex-direction: column !important; align-items: flex-start !important; }
 
+          /* Footer */
+          .bdreport-footer-sep { display: none; }
+          .bdreport-footer-admin { display: block; margin-top: 4px; }
+
           /* Chips */
           .bdreport-chips { gap: 6px !important; }
           .bdreport-chip { font-size: 0.8rem !important; padding: 6px 12px !important; }
@@ -706,7 +710,11 @@ export default function Dashboard() {
       </main>
 
       <footer style={styles.footer}>
-        <p>© 2026 EGAT BDReport &nbsp;·&nbsp; ผู้ดูแลระบบ: นายตวงเพชร ชัยยานนท์ วศ.4 หบอว-ธ. กบห-ธ. ชธธ.</p>
+        <p>
+          <span>© 2026 EGAT BDReport</span>
+          <span className="bdreport-footer-sep"> &nbsp;·&nbsp; </span>
+          <span className="bdreport-footer-admin">ผู้ดูแลระบบ: นายตวงเพชร ชัยยานนท์ วศ.4 หบอว-ธ. กบห-ธ. ชธธ.</span>
+        </p>
       </footer>
     </div>
   );
