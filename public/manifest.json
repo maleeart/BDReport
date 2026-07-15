@@ -1,0 +1,22 @@
+{
+  "name": "EGAT BDReport Control Panel",
+  "short_name": "EGAT BDReport",
+  "description": "ระบบสรุปรายงานการปฏิบัติงานประจำสัปดาห์อัตโนมัติ แผนกบำรุงรักษาอาคารและบริเวณ",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0F172A",
+  "theme_color": "#1E3A8A",
+  "icons": [
+    {
+      "src": "/bdreport_logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/apple-touch-icon.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}

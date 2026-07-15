@@ -262,14 +262,22 @@ export default function Dashboard() {
     }));
   };
 
+  // Enterprise telemetry calculations
+  const totalSlides = filteredReports.length;
+  const totalImages = filteredReports.reduce((acc, curr) => acc + (curr.base64Images?.length || (curr.base64Image ? 1 : 0)), 0);
+  const activeContributors = Array.from(new Set(filteredReports.map(r => r.userId))).length;
+
   return (
     <div style={styles.container}>
       <header style={styles.header}>
         <div style={styles.logoContainer}>
-          <div style={styles.logoBadge}>EGAT</div>
-          <h1 style={styles.logoText}>BDReport Control Panel</h1>
+          <img src="/bdreport_logo.jpg" alt="BDReport Logo" style={styles.logoImage} />
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+            <h1 style={styles.logoText}>BDReport Control Panel</h1>
+            <p style={styles.slogan}>Smart Maintenance, Seamless Reporting: Empowering EGAT Infrastructure</p>
+          </div>
         </div>
-        <p style={styles.subtitle}>ระบบสรุปรายงานการปฏิบัติงานประจำสัปดาห์อัตโนมัติ (แผนกบำรุงรักษาอาคารและบริเวณ)</p>
+        <p style={styles.subtitle}>ระบบสรุปรายงานการปฏิบัติงานประจำสัปดาห์อัตโนมัติ (แผนกบำรุงรักษาอาคารและบริเวณ) การไฟฟ้าฝ่ายผลิตแห่งประเทศไทย (กฟผ.)</p>
       </header>
 
       <main style={styles.main}>
@@ -343,6 +351,31 @@ export default function Dashboard() {
             </button>
           </div>
         </section>
+
+        {/* Enterprise Telemetry Stats Bar */}
+        {!loading && reports.length > 0 && (
+          <section style={styles.statsBar}>
+            <div style={styles.statBox}>
+              <span style={styles.statLabel}>📊 สไลด์ผลงานสัปดาห์นี้</span>
+              <span style={styles.statVal}>{totalSlides} แผ่น</span>
+            </div>
+            <div style={styles.statDivider}></div>
+            <div style={styles.statBox}>
+              <span style={styles.statLabel}>🖼️ รูปภาพประกอบซ่อมบำรุง</span>
+              <span style={styles.statVal}>{totalImages} ภาพ</span>
+            </div>
+            <div style={styles.statDivider}></div>
+            <div style={styles.statBox}>
+              <span style={styles.statLabel}>👷 ช่างผู้ร่วมส่งรายงาน</span>
+              <span style={styles.statVal}>{activeContributors} ท่าน</span>
+            </div>
+            <div style={styles.statDivider}></div>
+            <div style={styles.statBox}>
+              <span style={styles.statLabel}>🔌 สถานะเชื่อมต่อ LINE Bot</span>
+              <span style={styles.statusOnlineBadge}>● ONLINE</span>
+            </div>
+          </section>
+        )}
 
         {/* Collapsible Filter Keywords Section */}
         {!loading && filteredReports.length > 0 && (
@@ -645,18 +678,21 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '12px',
     marginBottom: '8px',
   },
-  logoBadge: {
-    background: 'linear-gradient(135deg, #EAB308 0%, #D97706 100%)',
-    color: '#0F172A',
-    fontWeight: 'bold',
-    fontSize: '1.4rem',
+  logoImage: {
     width: '60px',
-    height: '42px',
-    borderRadius: '8px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    boxShadow: '0 4px 15px rgba(234, 179, 8, 0.3)',
+    height: '60px',
+    borderRadius: '12px',
+    border: '2px solid #EAB308',
+    boxShadow: '0 4px 15px rgba(234, 179, 8, 0.4)',
+    objectFit: 'cover',
+  },
+  slogan: {
+    color: '#E2E8F0',
+    fontSize: '0.85rem',
+    fontWeight: 600,
+    letterSpacing: '0.5px',
+    marginTop: '2px',
+    opacity: 0.8,
   },
   logoText: {
     fontSize: '2.2rem',
@@ -668,6 +704,49 @@ const styles: Record<string, React.CSSProperties> = {
   subtitle: {
     color: '#94A3B8',
     fontSize: '1rem',
+    marginTop: '6px',
+  },
+  statsBar: {
+    background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.8) 100%)',
+    backdropFilter: 'blur(10px)',
+    border: '1px solid rgba(255, 255, 255, 0.05)',
+    borderRadius: '12px',
+    padding: '16px 24px',
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '20px',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    marginBottom: '24px',
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)',
+  },
+  statBox: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '4px',
+  },
+  statLabel: {
+    fontSize: '0.85rem',
+    color: '#94A3B8',
+    fontWeight: 500,
+  },
+  statVal: {
+    fontSize: '1.25rem',
+    fontWeight: 700,
+    color: '#FBBF24',
+  },
+  statDivider: {
+    width: '1px',
+    height: '32px',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    display: 'block',
+  },
+  statusOnlineBadge: {
+    fontSize: '0.9rem',
+    fontWeight: 700,
+    color: '#10B981',
+    textShadow: '0 0 10px rgba(16, 185, 129, 0.4)',
   },
   main: {
     maxWidth: '1200px',
