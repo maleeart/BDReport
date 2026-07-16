@@ -57,7 +57,7 @@ export default function Dashboard() {
   const [toggleHovered, setToggleHovered] = useState<boolean>(false);
 
   // Filtering & Panel States
-  const [selectedKeywords, setSelectedKeywords] = useState<string[]>(DEFAULT_KEYWORDS);
+  const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
   const [customKeywordInput, setCustomKeywordInput] = useState<string>('');
   const [showFilterConfig, setShowFilterConfig] = useState<boolean>(false);
 
@@ -551,13 +551,16 @@ export default function Dashboard() {
         </section>
 
         {/* 4. Collapsible Filter Keywords Section */}
-        {!loading && filteredReports.length > 0 && (
+        {!loading && reports.length > 0 && (
           <section style={styles.filterCard}>
             <div style={styles.filterHeader}>
               <div style={styles.filterHeaderLeft}>
                 <span style={styles.filterStatusText}>
-                  🔍 เปิดใช้งานตัวกรองข้อความบำรุงรักษาแล้ว (คำสำคัญทำงานอยู่: {selectedKeywords.length} คำ
-                  {customKeywordInput.trim() ? `, เพิ่มเติม: ${customKeywordInput}` : ''})
+                  {selectedKeywords.length > 0 || customKeywordInput.trim() ? (
+                    `🔍 กำลังกรองคำสำคัญที่ทำงานอยู่ (${selectedKeywords.length} คำเริ่มต้น${customKeywordInput.trim() ? `, เพิ่มเติม: ${customKeywordInput}` : ''})`
+                  ) : (
+                    '🔍 แสดงรายงานทั้งหมด (คลิกปุ่ม ⚙️ ปรับแต่งตัวกรอง เพื่อกรองข้อความ)'
+                  )}
                 </span>
               </div>
               <button
