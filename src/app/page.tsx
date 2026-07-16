@@ -49,6 +49,7 @@ export default function Dashboard() {
   // Pagination State
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [itemsPerPage, setItemsPerPage] = useState<number>(10);
+  const [viewMode, setViewMode] = useState<'detailed' | 'compact'>('detailed');
 
   // Theme State
   const [darkMode, setDarkMode] = useState<boolean>(true);
@@ -549,6 +550,30 @@ export default function Dashboard() {
               </span>
             </div>
 
+            {/* View Mode Toggle Controls */}
+            <div style={styles.viewModeToggleContainer}>
+              <button
+                onClick={() => setViewMode('detailed')}
+                style={{
+                  ...styles.viewModeButton,
+                  backgroundColor: viewMode === 'detailed' ? '#EAB308' : (darkMode ? '#334155' : '#E2E8F0'),
+                  color: viewMode === 'detailed' ? '#0F172A' : (darkMode ? '#F8FAFC' : '#0F172A'),
+                }}
+              >
+                📱 ลิสต์ใหญ่
+              </button>
+              <button
+                onClick={() => setViewMode('compact')}
+                style={{
+                  ...styles.viewModeButton,
+                  backgroundColor: viewMode === 'compact' ? '#EAB308' : (darkMode ? '#334155' : '#E2E8F0'),
+                  color: viewMode === 'compact' ? '#0F172A' : (darkMode ? '#F8FAFC' : '#0F172A'),
+                }}
+              >
+                ⬜ ตารางเล็ก
+              </button>
+            </div>
+
             {itemsPerPage !== -1 && totalPages > 1 && (
               <div style={styles.paginationRight}>
                 <button
@@ -611,8 +636,75 @@ export default function Dashboard() {
         )}
 
         {!loading && !actionLoading && filteredReports.length > 0 && (
-          <div style={styles.reportsGrid}>
-            {paginatedReports.map((report) => {
+          viewMode === 'compact' ? (
+            <div style={styles.compactGrid}>
+              {paginatedReports.map((report) => {
+                const originalIndex = reports.indexOf(report);
+                const isSelected = selectedIndices.has(originalIndex);
+                const hasBeenEdited = report.isEdited;
+                const firstImage = report.base64Images && report.base64Images.length > 0 
+                  ? report.base64Images[0] 
+                  : report.base64Image;
+
+                return (
+                  <div
+                    key={originalIndex}
+                    onClick={() => handleToggleSelect(originalIndex)}
+                    className="bdreport-compact-card"
+                    style={{
+                      ...styles.compactCard,
+                      backgroundColor: styles.reportCardBg?.backgroundColor,
+                      boxShadow: isSelected ? '0 0 12px rgba(234, 179, 8, 0.25)' : styles.reportCardShadow?.boxShadow,
+                      border: `1.5px solid ${isSelected ? '#EAB308' : (styles.reportCardBorderColor?.borderColor || 'rgba(255,255,255,0.05)')}`,
+                      opacity: isSelected ? 1 : 0.65,
+                    }}
+                  >
+                    {/* Thumbnail top half */}
+                    <div style={styles.compactCardImageContainer}>
+                      {firstImage ? (
+                        <img src={firstImage} alt={report.title} style={styles.compactCardImage} />
+                      ) : (
+                        <div style={styles.compactCardNoImage}>🖼️ ไม่มีรูปภาพ</div>
+                      )}
+                      {/* Selection Checkbox Overlay */}
+                      <div style={styles.compactCardCheckboxOverlay}>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          readOnly
+                          style={styles.checkboxSmall}
+                        />
+                      </div>
+                      {/* Group Badge Overlay */}
+                      {report.groupName && (
+                        <div style={styles.compactCardGroupOverlay}>
+                          {report.groupName}
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Info bottom half */}
+                    <div style={styles.compactCardInfo}>
+                      <div style={styles.compactCardUserRow}>
+                        <span style={styles.compactCardUser}>
+                          👷 {report.displayName || `ผู้ใช้ LINE (${report.userId.substring(0, 6)})`}
+                        </span>
+                        {hasBeenEdited && <span style={styles.compactEditedDot} title="แก้ไขแล้ว">📝</span>}
+                      </div>
+                      <h4 style={styles.compactCardTitle} title={report.title}>
+                        {report.title}
+                      </h4>
+                      <div style={styles.compactCardTime}>
+                        📅 {report.date}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div style={styles.reportsGrid}>
+              {paginatedReports.map((report) => {
               const originalIndex = reports.indexOf(report);
               const isSelected = selectedIndices.has(originalIndex);
               const isCurrentlyEditing = editingIndex === originalIndex;
@@ -772,6 +864,7 @@ export default function Dashboard() {
               );
             })}
           </div>
+          )
         )}
 
         {/* Bottom Pagination Controls */}
@@ -1571,6 +1664,133 @@ function getStyles(darkMode: boolean): Record<string, React.CSSProperties> {
     pageIndicator: {
       fontWeight: 700,
       color: theme.text,
+    },
+    compactGrid: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+      gap: '16px',
+    },
+    compactCard: {
+      borderRadius: '12px',
+      overflow: 'hidden',
+      cursor: 'pointer',
+      display: 'flex',
+      flexDirection: 'column',
+      position: 'relative',
+      transition: 'all 0.2s ease',
+      height: '210px',
+    },
+    compactCardImageContainer: {
+      height: '110px',
+      width: '100%',
+      position: 'relative',
+      backgroundColor: 'rgba(15, 23, 42, 0.3)',
+      overflow: 'hidden',
+    },
+    compactCardImage: {
+      width: '100%',
+      height: '100%',
+      objectFit: 'cover',
+    },
+    compactCardNoImage: {
+      width: '100%',
+      height: '100%',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      color: theme.textSecondary,
+      fontSize: '0.8rem',
+      fontWeight: 500,
+    },
+    compactCardCheckboxOverlay: {
+      position: 'absolute',
+      top: '8px',
+      left: '8px',
+      zIndex: 10,
+      backgroundColor: 'rgba(15, 23, 42, 0.6)',
+      borderRadius: '4px',
+      padding: '2px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    checkboxSmall: {
+      width: '16px',
+      height: '16px',
+      accentColor: '#EAB308',
+      cursor: 'pointer',
+    },
+    compactCardGroupOverlay: {
+      position: 'absolute',
+      bottom: '6px',
+      right: '6px',
+      backgroundColor: 'rgba(234, 179, 8, 0.85)',
+      color: '#0f172a',
+      fontSize: '0.7rem',
+      fontWeight: 700,
+      padding: '2px 6px',
+      borderRadius: '4px',
+      maxWidth: '120px',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap',
+    },
+    compactCardInfo: {
+      padding: '10px 12px',
+      display: 'flex',
+      flexDirection: 'column',
+      flex: 1,
+      justifyContent: 'space-between',
+    },
+    compactCardUserRow: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      fontSize: '0.75rem',
+      color: theme.textSecondary,
+    },
+    compactCardUser: {
+      fontWeight: 600,
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap',
+    },
+    compactEditedDot: {
+      fontSize: '0.8rem',
+    },
+    compactCardTitle: {
+      fontSize: '0.85rem',
+      fontWeight: 700,
+      color: theme.text,
+      margin: '4px 0',
+      lineHeight: '1.3',
+      display: '-webkit-box',
+      WebkitLineClamp: 2,
+      WebkitBoxOrient: 'vertical',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+    },
+    compactCardTime: {
+      fontSize: '0.75rem',
+      color: theme.textSecondary,
+      textAlign: 'right',
+    },
+    viewModeToggleContainer: {
+      display: 'flex',
+      gap: '4px',
+      backgroundColor: darkMode ? 'rgba(15, 23, 42, 0.4)' : 'rgba(0, 0, 0, 0.05)',
+      padding: '3px',
+      borderRadius: '8px',
+      border: theme.cardBorder,
+    },
+    viewModeButton: {
+      border: 'none',
+      borderRadius: '6px',
+      padding: '5px 10px',
+      fontSize: '0.8rem',
+      fontWeight: 600,
+      cursor: 'pointer',
+      transition: 'all 0.2s ease',
     },
     footer: {
       marginTop: '50px',
