@@ -57,7 +57,7 @@ export default function Dashboard() {
   const [toggleHovered, setToggleHovered] = useState<boolean>(false);
 
   // Filtering & Panel States
-  const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
+  const [selectedKeywords, setSelectedKeywords] = useState<string[]>(DEFAULT_KEYWORDS);
   const [customKeywordInput, setCustomKeywordInput] = useState<string>('');
   const [showFilterConfig, setShowFilterConfig] = useState<boolean>(false);
 
