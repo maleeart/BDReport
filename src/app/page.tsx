@@ -691,8 +691,8 @@ export default function Dashboard() {
                         </span>
                         {hasBeenEdited && <span style={styles.compactEditedDot} title="แก้ไขแล้ว">📝</span>}
                       </div>
-                      <h4 style={styles.compactCardTitle} title={report.title}>
-                        {report.title}
+                      <h4 style={styles.compactCardTitle} title={report.summary.join('\n')}>
+                        {report.summary.join(' ')}
                       </h4>
                       <div style={styles.compactCardTime}>
                         📅 {report.date}
