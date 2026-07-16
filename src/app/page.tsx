@@ -275,6 +275,46 @@ export default function Dashboard() {
     }
   };
 
+  const handleMergeSelected = async () => {
+    const selectedReports = Array.from(selectedIndices)
+      .map(idx => reports[idx])
+      .filter(Boolean)
+      .sort((a, b) => a.sortTimestamp - b.sortTimestamp);
+
+    if (selectedReports.length < 2) {
+      alert('กรุณาเลือกอย่างน้อย 2 รายการเพื่อรวมเข้าด้วยกัน');
+      return;
+    }
+
+    const primary = selectedReports[0];
+    const secondaries = selectedReports.slice(1);
+
+    if (!confirm(`คุณต้องการรวมรายงานของ ${primary.displayName || 'ผู้ใช้ LINE'} และรายงานที่เลือกอีก ${secondaries.length} รายการเข้าด้วยกันเป็นสไลด์เดียวหรือไม่?`)) {
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      const res = await fetch('/api/reports/merge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ primary, secondaries }),
+      });
+
+      if (!res.ok) {
+        throw new Error('ไม่สามารถรวมรายงานได้');
+      }
+
+      // Deselect all and refresh
+      setSelectedIndices(new Set());
+      await fetchReports(selectedWeek);
+    } catch (err: any) {
+      alert(err.message || 'เกิดข้อผิดพลาดในการรวมรายงาน');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const toggleShowOriginal = (idx: number) => {
     setShowOriginalMap(prev => ({
       ...prev,
@@ -522,6 +562,11 @@ export default function Dashboard() {
             </div>
             {filteredReports.length > 0 && (
               <div style={styles.bulkActions}>
+                {selectedIndices.size >= 2 && (
+                  <button onClick={handleMergeSelected} style={styles.mergeButton}>
+                    🔗 รวมเป็นงานเดียวกัน ({selectedIndices.size})
+                  </button>
+                )}
                 <button onClick={handleSelectAll} style={styles.linkButton}>เลือกสไลด์ทั้งหมด ({filteredReports.length})</button>
                 <span style={{ color: '#475569' }}>|</span>
                 <button onClick={handleDeselectAll} style={styles.linkButton}>ล้างทั้งหมด</button>
@@ -1302,6 +1347,19 @@ function getStyles(darkMode: boolean): Record<string, React.CSSProperties> {
       display: 'flex',
       gap: '8px',
       alignItems: 'center',
+    },
+    mergeButton: {
+      backgroundColor: '#3B82F6',
+      color: '#FFFFFF',
+      border: 'none',
+      borderRadius: '20px',
+      padding: '6px 14px',
+      fontSize: '0.85rem',
+      fontWeight: 700,
+      cursor: 'pointer',
+      marginRight: '8px',
+      boxShadow: '0 2px 8px rgba(59, 130, 246, 0.25)',
+      transition: 'all 0.2s',
     },
     linkButton: {
       backgroundColor: 'transparent',

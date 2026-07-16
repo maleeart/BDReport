@@ -15,10 +15,37 @@ export async function POST(req: NextRequest) {
     const docId = `${userId}_${timestamp}`;
 
     if (editedSummary === null) {
-      // Revert: Delete the edited document
-      await db.collection('edited_reports').doc(docId).delete();
+      // Revert: Check if this was a merged primary report
+      if (!db) {
+        return NextResponse.json({ error: 'Database not initialized' }, { status: 500 });
+      }
+      
+      const docRef = db.collection('edited_reports').doc(docId);
+      const docSnap = await docRef.get();
+      
+      if (docSnap.exists) {
+        const data = docSnap.data();
+        if (data && data.isMergedPrimary && Array.isArray(data.mergedSecondaries)) {
+          // It's a merged report! Revert primary and all secondaries in batch
+          const batch = db.batch();
+          batch.delete(docRef);
+          
+          data.mergedSecondaries.forEach((secId: string) => {
+            batch.delete(db.collection('edited_reports').doc(secId));
+          });
+          
+          await batch.commit();
+          return NextResponse.json({ success: true, reverted: true, mergedReverted: true });
+        }
+      }
+
+      // Simple edit revert: just delete
+      await docRef.delete();
       return NextResponse.json({ success: true, reverted: true });
     } else {
+      if (!db) {
+        return NextResponse.json({ error: 'Database not initialized' }, { status: 500 });
+      }
       // Save/Update edits
       await db.collection('edited_reports').doc(docId).set({
         userId,

@@ -150,7 +150,7 @@ export async function GET(req: NextRequest) {
       groupIdsSet.add(repGroupId);
     });
 
-    const reportsList: any[] = [];
+    let reportsList: any[] = [];
     const userNamesMap: Record<string, string> = {};
     const groupNamesMap: Record<string, string> = {};
     
@@ -325,9 +325,15 @@ export async function GET(req: NextRequest) {
             const editedDoc = await db.collection('edited_reports').doc(docId).get();
             const editedData = editedDoc.data();
             if (editedDoc.exists && editedData) {
+              if (editedData.isHidden) {
+                rep.isHidden = true;
+              }
               rep.originalSummary = editedData.originalSummary || [...rep.summary];
               rep.summary = editedData.editedSummary || rep.summary;
               rep.isEdited = true;
+              if (Array.isArray(editedData.mergedImageIds)) {
+                rep.imageIds = editedData.mergedImageIds;
+              }
             } else {
               rep.originalSummary = [...rep.summary];
               rep.isEdited = false;
@@ -339,6 +345,8 @@ export async function GET(req: NextRequest) {
           }
         })
       );
+      // Filter out hidden reports
+      reportsList = reportsList.filter((rep) => !rep.isHidden);
     }
 
     // Sort all slide entries chronologically across the week
