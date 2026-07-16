@@ -41,6 +41,7 @@ export default function Dashboard() {
   const [reports, setReports] = useState<Report[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string>('all');
+  const [hasSetDefaultGroup, setHasSetDefaultGroup] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -84,8 +85,18 @@ export default function Dashboard() {
       const data = await res.json();
       const fetchedReports = data.reports || [];
       setReports(fetchedReports);
-      setGroups(data.groups || []);
+      const fetchedGroups = data.groups || [];
+      setGroups(fetchedGroups);
       setThaiWeekRange(data.date || '');
+
+      // Auto-select 'งานอาคารและบริเวณ' group as default on initial load
+      if (!hasSetDefaultGroup && fetchedGroups.length > 0) {
+        const targetGroup = fetchedGroups.find((g: any) => g.groupName && g.groupName.includes('งานอาคารและบริเวณ'));
+        if (targetGroup) {
+          setSelectedGroupId(targetGroup.groupId);
+          setHasSetDefaultGroup(true);
+        }
+      }
     } catch (err: any) {
       setError(err.message || 'เกิดข้อผิดพลาดในการโหลดข้อมูล');
       setReports([]);
