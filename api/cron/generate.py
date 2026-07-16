@@ -243,87 +243,106 @@ class handler(BaseHTTPRequestHandler):
                             num_imgs = len(img_list)
                             gap = 100000  # 100,000 EMUs gap
                             
-                            if num_imgs <= 4:
-                                total_gaps_width = gap * (num_imgs - 1) if num_imgs > 1 else 0
-                                col_width = int((width - total_gaps_width) / num_imgs)
-                                
-                                for idx, img_base64 in enumerate(img_list):
-                                    try:
-                                        header, encoded = img_base64.split(",", 1) if "," in img_base64 else ("", img_base64)
-                                        img_data = base64.b64decode(encoded)
-                                        img_stream = io.BytesIO(img_data)
-                                        
-                                        from PIL import Image
-                                        img = Image.open(img_stream)
-                                        img_width_px, img_height_px = img.size
-                                        
-                                        aspect_ratio = img_width_px / img_height_px
-                                        box_ratio = col_width / height
-                                        
-                                        if aspect_ratio > box_ratio:
-                                            new_w = col_width
-                                            new_h = col_width / aspect_ratio
-                                        else:
-                                            new_h = height
-                                            new_w = height * aspect_ratio
-                                            
-                                        col_left = left + idx * (col_width + gap)
-                                        new_left = col_left + (col_width - new_w) / 2
-                                        new_top = top + (height - new_h) / 2
-                                        
-                                        img_stream.seek(0)
-                                        new_slide.shapes.add_picture(img_stream, int(new_left), int(new_top), int(new_w), int(new_h))
-                                    except Exception as img_err:
-                                        print(f"Error adding image {idx}: {img_err}")
+                            # 1. Determine average aspect ratio of all images on this slide
+                            aspect_ratios = []
+                            for img_base64 in img_list:
+                                try:
+                                    header, encoded = img_base64.split(",", 1) if "," in img_base64 else ("", img_base64)
+                                    img_data = base64.b64decode(encoded)
+                                    img_stream = io.BytesIO(img_data)
+                                    from PIL import Image
+                                    img = Image.open(img_stream)
+                                    aspect_ratios.append(img.size[0] / img.size[1])
+                                except Exception:
+                                    aspect_ratios.append(1.33)  # default fallback
+                            
+                            avg_aspect = sum(aspect_ratios) / len(aspect_ratios) if aspect_ratios else 1.33
+
+                            # 2. Candidate partitions for n images
+                            candidate_layouts = []
+                            if num_imgs == 1:
+                                candidate_layouts = [[1]]
+                            elif num_imgs == 2:
+                                candidate_layouts = [[2], [1, 1]]
+                            elif num_imgs == 3:
+                                candidate_layouts = [[3], [2, 1], [1, 1, 1]]
+                            elif num_imgs == 4:
+                                candidate_layouts = [[4], [2, 2], [3, 1]]
+                            elif num_imgs == 5:
+                                candidate_layouts = [[5], [3, 2], [2, 2, 1]]
+                            elif num_imgs == 6:
+                                candidate_layouts = [[6], [3, 3], [4, 2], [2, 2, 2]]
+                            elif num_imgs == 7:
+                                candidate_layouts = [[7], [4, 3], [3, 2, 2]]
+                            elif num_imgs == 8:
+                                candidate_layouts = [[8], [4, 4], [3, 3, 2]]
                             else:
-                                # 2-row layout for 5 to 8 images
-                                cols_row1 = (num_imgs + 1) // 2  # e.g., 3 cols for 5/6 imgs, 4 cols for 7/8 imgs
-                                cols_row2 = num_imgs // 2       # e.g., 2 cols for 5, 3 cols for 6/7, 4 cols for 8
+                                candidate_layouts = [[num_imgs]]
+
+                            # 3. Find the best layout that maximizes image size (h_max)
+                            best_layout = candidate_layouts[0]
+                            best_h = 0
+                            best_w = 0
+
+                            for layout in candidate_layouts:
+                                r = len(layout)
+                                # Check height constraint: r * h + (r-1)*gap <= height
+                                h_limit_by_height = (height - (r - 1) * gap) / r
                                 
-                                # Use uniform column width based on maximum columns (row 1)
-                                total_gaps_width = gap * (cols_row1 - 1)
-                                col_width = int((width - total_gaps_width) / cols_row1)
-                                row_height = int((height - gap) / 2)
+                                # Check width constraint for each row: c * h * avg_aspect + (c-1)*gap <= width
+                                h_limit_by_width = min(
+                                    (width - (c - 1) * gap) / (c * avg_aspect)
+                                    for c in layout
+                                )
                                 
-                                for idx, img_base64 in enumerate(img_list):
-                                    try:
-                                        r = 0 if idx < cols_row1 else 1
-                                        c = idx if r == 0 else (idx - cols_row1)
-                                        cols = cols_row1 if r == 0 else cols_row2
+                                h_candidate = min(h_limit_by_height, h_limit_by_width)
+                                if h_candidate > best_h and h_candidate > 0:
+                                    best_h = h_candidate
+                                    best_layout = layout
+                                    best_w = h_candidate * avg_aspect
+
+                            # 4. Render the images using the optimized best_layout
+                            r = len(best_layout)
+                            total_block_height = r * best_h + (r - 1) * gap
+                            y_start = top + (height - total_block_height) / 2
+                            
+                            current_img_idx = 0
+                            for r_idx, cols_in_row in enumerate(best_layout):
+                                row_width = cols_in_row * best_w + (cols_in_row - 1) * gap
+                                x_start = left + (width - row_width) / 2
+                                row_top = y_start + r_idx * (best_h + gap)
+                                
+                                for c_idx in range(cols_in_row):
+                                    if current_img_idx < len(img_list):
+                                        img_base64 = img_list[current_img_idx]
+                                        img_left = x_start + c_idx * (best_w + gap)
                                         
-                                        header, encoded = img_base64.split(",", 1) if "," in img_base64 else ("", img_base64)
-                                        img_data = base64.b64decode(encoded)
-                                        img_stream = io.BytesIO(img_data)
-                                        
-                                        from PIL import Image
-                                        img = Image.open(img_stream)
-                                        img_width_px, img_height_px = img.size
-                                        
-                                        aspect_ratio = img_width_px / img_height_px
-                                        box_ratio = col_width / row_height
-                                        
-                                        if aspect_ratio > box_ratio:
-                                            new_w = col_width
-                                            new_h = col_width / aspect_ratio
-                                        else:
-                                            new_h = row_height
-                                            new_w = row_height * aspect_ratio
+                                        try:
+                                            header, encoded = img_base64.split(",", 1) if "," in img_base64 else ("", img_base64)
+                                            img_data = base64.b64decode(encoded)
+                                            img_stream = io.BytesIO(img_data)
                                             
-                                        col_left = left + c * (col_width + gap)
-                                        
-                                        # Center the second row if it has fewer columns than the first row
-                                        if r == 1 and cols_row2 < cols_row1:
-                                            row2_total_width = cols_row2 * col_width + (cols_row2 - 1) * gap
-                                            offset = int((width - row2_total_width) / 2)
-                                            col_left = left + offset + c * (col_width + gap)
+                                            from PIL import Image
+                                            img = Image.open(img_stream)
+                                            actual_aspect = img.size[0] / img.size[1]
                                             
-                                        new_left = col_left + (col_width - new_w) / 2
-                                        new_top = top + r * (row_height + gap) + (row_height - new_h) / 2
+                                            actual_h = best_h
+                                            actual_w = best_h * actual_aspect
+                                            
+                                            if actual_w > best_w:
+                                                actual_w = best_w
+                                                actual_h = best_w / actual_aspect
+                                                
+                                            # Center individual image within its allocated cell
+                                            cell_left = img_left + (best_w - actual_w) / 2
+                                            cell_top = row_top + (best_h - actual_h) / 2
+                                            
+                                            img_stream.seek(0)
+                                            new_slide.shapes.add_picture(img_stream, int(cell_left), int(cell_top), int(actual_w), int(actual_h))
+                                        except Exception as img_err:
+                                            print(f"Error adding optimized image {current_img_idx}: {img_err}")
                                         
-                                        img_stream.seek(0)
-                                        new_slide.shapes.add_picture(img_stream, int(new_left), int(new_top), int(new_w), int(new_h))
-                                    except Exception as img_err:
-                                        print(f"Error adding grid image {idx}: {img_err}")
+                                        current_img_idx += 1
                         else:
                             txBox = new_slide.shapes.add_textbox(left, top, width, height)
                             txBox.text_frame.text = "[ไม่มีรูปประกอบ]"
