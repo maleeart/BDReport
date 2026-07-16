@@ -482,8 +482,15 @@ export default function Dashboard() {
           </div>
           <div style={styles.topStatusRight}>
             <span style={styles.topStatusLabel}>กลุ่ม:</span>
-            <strong style={styles.groupNameHighlight}>
-              {groups.length > 0 ? groups[0].groupName : 'EGAT IOT'}
+            <strong 
+              style={styles.groupNameHighlight} 
+              title={groups.map(g => g.groupName).filter(Boolean).join(', ')}
+            >
+              {(() => {
+                const joined = groups.map(g => g.groupName).filter(Boolean).join(', ');
+                const fallback = joined || 'EGAT IOT';
+                return fallback.length > 65 ? fallback.substring(0, 65) + '...' : fallback;
+              })()}
             </strong>
           </div>
         </div>
