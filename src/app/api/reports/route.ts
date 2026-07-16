@@ -104,6 +104,7 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const weekParam = searchParams.get('week') || '';
+    const includeImages = searchParams.get('includeImages') === 'true';
 
     let monday: Date;
     let sunday: Date;
@@ -138,7 +139,7 @@ export async function GET(req: NextRequest) {
     const groupIdsSet = new Set<string>();
 
     snapshot.docs.forEach((doc: any) => {
-      const data = doc.data();
+      const data = { ...doc.data(), id: doc.id };
       const userId = data.userId;
       if (!userReportsMap[userId]) {
         userReportsMap[userId] = [];
@@ -260,6 +261,7 @@ export async function GET(req: NextRequest) {
         // Collect all images sent in this task group (1-minute window)
         const imageReports = group.filter((r) => r.type === 'image');
         const base64Images = imageReports.map((r) => r.base64Image).filter(Boolean);
+        const imageIds = imageReports.map((r) => r.id).filter(Boolean);
         const representativeReport = group[0];
 
         // Do not alter or summarize the original text: use it directly as the list of items
@@ -306,8 +308,9 @@ export async function GET(req: NextRequest) {
           date: reportDateStr,
           time: reportTimeStr,
           summary,
-          base64Image: base64Images[0] || null,
-          base64Images: base64Images,
+          imageIds,
+          base64Image: includeImages ? (base64Images[0] || null) : null,
+          base64Images: includeImages ? base64Images : [],
           sortTimestamp: representativeReport.timestamp || 0,
         });
       }

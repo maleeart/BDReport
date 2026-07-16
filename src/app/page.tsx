@@ -15,6 +15,7 @@ interface Report {
   isEdited?: boolean;
   base64Image: string | null;
   base64Images?: string[];
+  imageIds?: string[];
   sortTimestamp: number;
 }
 
@@ -642,9 +643,9 @@ export default function Dashboard() {
                 const originalIndex = reports.indexOf(report);
                 const isSelected = selectedIndices.has(originalIndex);
                 const hasBeenEdited = report.isEdited;
-                const firstImage = report.base64Images && report.base64Images.length > 0 
-                  ? report.base64Images[0] 
-                  : report.base64Image;
+                const firstImageId = report.imageIds && report.imageIds.length > 0 
+                  ? report.imageIds[0] 
+                  : null;
 
                 return (
                   <div
@@ -661,8 +662,13 @@ export default function Dashboard() {
                   >
                     {/* Thumbnail top half */}
                     <div style={styles.compactCardImageContainer}>
-                      {firstImage ? (
-                        <img src={firstImage} alt={report.title} style={styles.compactCardImage} />
+                      {firstImageId ? (
+                        <img 
+                          src={`/api/reports/image?id=${firstImageId}`} 
+                          alt={report.title} 
+                          style={styles.compactCardImage} 
+                          loading="lazy" 
+                        />
                       ) : (
                         <div style={styles.compactCardNoImage}>🖼️ ไม่มีรูปภาพ</div>
                       )}
@@ -832,28 +838,20 @@ export default function Dashboard() {
                       )}
                     </div>
 
-                    {/* Image Section */}
                     <div style={styles.imageSection}>
                       <h4 style={styles.sectionLabel}>🖼️ รูปภาพประกอบ:</h4>
-                      {report.base64Images && report.base64Images.length > 0 ? (
+                      {report.imageIds && report.imageIds.length > 0 ? (
                         <div style={styles.imagesGrid} className="bdreport-images-grid">
-                          {report.base64Images.map((img, idx) => (
+                          {report.imageIds.map((imageId, idx) => (
                             <div key={idx} style={styles.imageWrapper} className="bdreport-image-wrapper">
                               <img
-                                src={img}
+                                src={`/api/reports/image?id=${imageId}`}
                                 alt={`ภาพประกอบ ${idx + 1}`}
                                 style={styles.image}
+                                loading="lazy"
                               />
                             </div>
                           ))}
-                        </div>
-                      ) : report.base64Image ? (
-                        <div style={styles.imageWrapper}>
-                          <img
-                            src={report.base64Image}
-                            alt="ภาพประกอบรายงาน"
-                            style={styles.image}
-                          />
                         </div>
                       ) : (
                         <div style={styles.noImage}>ไม่มีรูปถ่ายแนบมาด้วย</div>
