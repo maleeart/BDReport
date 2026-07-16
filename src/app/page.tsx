@@ -210,12 +210,31 @@ export default function Dashboard() {
 
   const handleDownload = () => {
     const indicesStr = Array.from(selectedIndices).sort((a, b) => a - b).join(',');
-    // Open in new tab to trigger secure server-side proxy file download
-    window.open(`/api/download?week=${selectedWeek}&indices=${indicesStr}&groupId=${selectedGroupId}`, '_blank');
+    const downloadUrl = `/api/download?week=${selectedWeek}&indices=${indicesStr}&groupId=${selectedGroupId}`;
+    
+    // Check if mobile or inside LINE in-app webview
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || 
+                     (navigator.userAgent.indexOf('Line') > -1);
+
+    if (isMobile) {
+      window.location.href = downloadUrl;
+    } else {
+      window.open(downloadUrl, '_blank');
+    }
   };
 
   const handleDownloadImagesZip = () => {
-    window.open(`/api/download-images?week=${selectedWeek}`, '_blank');
+    const downloadUrl = `/api/download-images?week=${selectedWeek}`;
+    
+    // Check if mobile or inside LINE in-app webview
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || 
+                     (navigator.userAgent.indexOf('Line') > -1);
+
+    if (isMobile) {
+      window.location.href = downloadUrl;
+    } else {
+      window.open(downloadUrl, '_blank');
+    }
   };
 
   const startEditing = (idx: number, report: Report) => {
