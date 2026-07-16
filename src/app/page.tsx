@@ -46,6 +46,10 @@ export default function Dashboard() {
   const [thaiWeekRange, setThaiWeekRange] = useState<string>('');
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(10);
+
   // Theme State
   const [darkMode, setDarkMode] = useState<boolean>(true);
   const [toggleHovered, setToggleHovered] = useState<boolean>(false);
@@ -133,6 +137,16 @@ export default function Dashboard() {
   };
 
   const filteredReports = getFilteredReports();
+
+  // Reset page when inputs change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedWeek, selectedGroupId, selectedKeywords, customKeywordInput, itemsPerPage]);
+
+  const totalPages = itemsPerPage === -1 ? 1 : Math.ceil(filteredReports.length / itemsPerPage);
+  const paginatedReports = itemsPerPage === -1
+    ? filteredReports
+    : filteredReports.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   // Dynamically update selected indices when reports, group, or keyword filters change
   useEffect(() => {
@@ -514,6 +528,59 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* Top Pagination Control Row */}
+        {!loading && filteredReports.length > 0 && (
+          <div style={styles.paginationRow} className="bdreport-pagination-row">
+            <div style={styles.paginationLeft}>
+              <label style={styles.paginationLabel} htmlFor="per-page-select">แสดงหน้าละ:</label>
+              <select
+                id="per-page-select"
+                value={itemsPerPage}
+                onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                style={styles.selectInputSmall}
+              >
+                <option value={5}>5 รายการ</option>
+                <option value={10}>10 รายการ</option>
+                <option value={20}>20 รายการ</option>
+                <option value={-1}>แสดงทั้งหมด</option>
+              </select>
+              <span style={styles.paginationTotal}>
+                (ทั้งหมด {filteredReports.length} รายการ)
+              </span>
+            </div>
+
+            {itemsPerPage !== -1 && totalPages > 1 && (
+              <div style={styles.paginationRight}>
+                <button
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  style={{
+                    ...styles.paginationButton,
+                    opacity: currentPage === 1 ? 0.5 : 1,
+                    cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  ◀ ย้อนกลับ
+                </button>
+                <span style={styles.pageIndicator}>
+                  หน้า {currentPage} / {totalPages}
+                </span>
+                <button
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  style={{
+                    ...styles.paginationButton,
+                    opacity: currentPage === totalPages ? 0.5 : 1,
+                    cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  ถัดไป ▶
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Status Messages */}
         {(loading || actionLoading) && (
           <div style={styles.loadingContainer}>
@@ -543,10 +610,9 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* 5. Slides list */}
         {!loading && !actionLoading && filteredReports.length > 0 && (
           <div style={styles.reportsGrid}>
-            {filteredReports.map((report) => {
+            {paginatedReports.map((report) => {
               const originalIndex = reports.indexOf(report);
               const isSelected = selectedIndices.has(originalIndex);
               const isCurrentlyEditing = editingIndex === originalIndex;
@@ -705,6 +771,39 @@ export default function Dashboard() {
                 </article>
               );
             })}
+          </div>
+        )}
+
+        {/* Bottom Pagination Controls */}
+        {!loading && filteredReports.length > 0 && itemsPerPage !== -1 && totalPages > 1 && (
+          <div style={{ ...styles.paginationRow, marginTop: '24px', justifyContent: 'center' }} className="bdreport-pagination-row">
+            <div style={styles.paginationRight}>
+              <button
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                style={{
+                  ...styles.paginationButton,
+                  opacity: currentPage === 1 ? 0.5 : 1,
+                  cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                }}
+              >
+                ◀ ย้อนกลับ
+              </button>
+              <span style={styles.pageIndicator}>
+                หน้า {currentPage} / {totalPages}
+              </span>
+              <button
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                style={{
+                  ...styles.paginationButton,
+                  opacity: currentPage === totalPages ? 0.5 : 1,
+                  cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                }}
+              >
+                ถัดไป ▶
+              </button>
+            </div>
           </div>
         )}
       </main>
@@ -1416,6 +1515,62 @@ function getStyles(darkMode: boolean): Record<string, React.CSSProperties> {
       color: theme.textSecondary,
       fontSize: '0.9rem',
       backgroundColor: darkMode ? 'rgba(15, 23, 42, 0.5)' : '#F1F5F9',
+    },
+    paginationRow: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      flexWrap: 'wrap',
+      gap: '12px',
+      marginBottom: '16px',
+      background: theme.cardBg,
+      border: theme.cardBorder,
+      borderRadius: '12px',
+      padding: '10px 16px',
+      boxShadow: theme.cardShadow,
+      fontSize: '0.9rem',
+    },
+    paginationLeft: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+    },
+    paginationLabel: {
+      fontWeight: 600,
+      color: theme.textSecondary,
+    },
+    selectInputSmall: {
+      backgroundColor: theme.inputBg,
+      border: `1.5px solid ${theme.inputBorder}`,
+      borderRadius: '6px',
+      color: theme.inputText,
+      padding: '6px 10px',
+      fontSize: '0.85rem',
+      outline: 'none',
+      cursor: 'pointer',
+    },
+    paginationTotal: {
+      color: theme.textSecondary,
+      fontSize: '0.85rem',
+    },
+    paginationRight: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '12px',
+    },
+    paginationButton: {
+      backgroundColor: darkMode ? '#334155' : '#E2E8F0',
+      color: theme.text,
+      border: 'none',
+      borderRadius: '6px',
+      padding: '6px 12px',
+      fontSize: '0.85rem',
+      fontWeight: 600,
+      transition: 'background-color 0.2s',
+    },
+    pageIndicator: {
+      fontWeight: 700,
+      color: theme.text,
     },
     footer: {
       marginTop: '50px',
