@@ -374,6 +374,78 @@ export default function Dashboard() {
           .bdreport-chips { gap: 6px !important; }
           .bdreport-chip { font-size: 0.8rem !important; padding: 6px 12px !important; }
         }
+
+        /* Unified Theme Buttons styling */
+        .bdreport-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          border-radius: 10px;
+          font-size: 0.9rem;
+          font-weight: 600;
+          padding: 10px 18px;
+          cursor: pointer;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          user-select: none;
+          box-sizing: border-box;
+          height: 40px;
+          border: none;
+          text-decoration: none;
+        }
+
+        /* Hover & Active animations */
+        .bdreport-btn:hover {
+          transform: translateY(-1.5px);
+        }
+        .bdreport-btn:active {
+          transform: translateY(0.5px);
+        }
+        .bdreport-btn:disabled {
+          opacity: 0.55 !important;
+          cursor: not-allowed !important;
+          transform: none !important;
+          box-shadow: none !important;
+        }
+
+        /* 1. Refresh Button (Sleek Outline style) */
+        .bdreport-btn-refresh {
+          background-color: ${darkMode ? 'rgba(51, 65, 85, 0.35)' : 'rgba(241, 245, 249, 0.85)'};
+          color: ${darkMode ? '#E2E8F0' : '#334155'};
+          border: 1.5px solid ${darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)'};
+        }
+        .bdreport-btn-refresh:hover {
+          background-color: ${darkMode ? 'rgba(51, 65, 85, 0.65)' : 'rgba(226, 232, 240, 0.95)'};
+          border-color: #EAB308;
+          color: #EAB308;
+          box-shadow: 0 4px 12px ${darkMode ? 'rgba(234, 179, 8, 0.15)' : 'rgba(234, 179, 8, 0.1)'};
+        }
+
+        /* 2. Backup Button (Sleek Outline style) */
+        .bdreport-btn-backup {
+          background-color: ${darkMode ? 'rgba(30, 41, 59, 0.35)' : 'rgba(255, 255, 255, 0.95)'};
+          color: ${darkMode ? '#CBD5E1' : '#475569'};
+          border: 1.5px solid ${darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)'};
+        }
+        .bdreport-btn-backup:hover {
+          background-color: ${darkMode ? 'rgba(30, 41, 59, 0.65)' : 'rgba(248, 250, 252, 0.95)'};
+          border-color: #EAB308;
+          color: #EAB308;
+          box-shadow: 0 4px 12px ${darkMode ? 'rgba(234, 179, 8, 0.15)' : 'rgba(234, 179, 8, 0.1)'};
+        }
+
+        /* 3. Download PPTX Button (Glowing Primary Gold style) */
+        .bdreport-btn-download {
+          background: linear-gradient(135deg, #FACC15 0%, #EAB308 100%);
+          color: #0F172A;
+          border: none;
+          font-weight: 700;
+          box-shadow: 0 4px 16px ${darkMode ? 'rgba(234, 179, 8, 0.35)' : 'rgba(234, 179, 8, 0.25)'};
+        }
+        .bdreport-btn-download:hover {
+          background: linear-gradient(135deg, #FDE047 0%, #F59E0B 100%);
+          box-shadow: 0 6px 20px ${darkMode ? 'rgba(234, 179, 8, 0.45)' : 'rgba(234, 179, 8, 0.35)'};
+        }
       `}</style>
       {/* Light / Dark Mode Toggle button */}
       <button 
@@ -457,29 +529,21 @@ export default function Dashboard() {
             <button
               onClick={() => fetchReports(selectedWeek)}
               disabled={loading}
-              style={styles.refreshButton}
+              className="bdreport-btn bdreport-btn-refresh"
             >
               🔄 รีเฟรชข้อมูล
             </button>
             <button
               onClick={handleDownloadImagesZip}
               disabled={loading || reports.length === 0}
-              style={{
-                ...styles.zipButton,
-                opacity: (loading || reports.length === 0) ? 0.6 : 1,
-                cursor: (loading || reports.length === 0) ? 'not-allowed' : 'pointer',
-              }}
+              className="bdreport-btn bdreport-btn-backup"
             >
               📦 Backup photo
             </button>
             <button
               onClick={handleDownload}
               disabled={selectedIndices.size === 0}
-              style={{
-                ...styles.downloadButton,
-                opacity: selectedIndices.size === 0 ? 0.6 : 1,
-                cursor: selectedIndices.size === 0 ? 'not-allowed' : 'pointer',
-              }}
+              className="bdreport-btn bdreport-btn-download"
             >
               📊 สร้างรายงาน PowerPoint ({selectedIndices.size}/{filteredReports.length})
             </button>
