@@ -3,16 +3,33 @@ import { db } from '@/lib/firebaseAdmin';
 
 export const dynamic = 'force-dynamic';
 
-async function getLineUserProfile(userId: string, accessToken: string): Promise<string | null> {
+async function getLineUserProfile(userId: string, accessToken: string, groupId?: string): Promise<string | null> {
   try {
-    const res = await fetch(`https://api.line.me/v2/bot/profile/${userId}`, {
+    let url = `https://api.line.me/v2/bot/profile/${userId}`;
+    if (groupId && groupId !== 'private' && !groupId.startsWith('private_')) {
+      url = `https://api.line.me/v2/bot/group/${groupId}/member/${userId}`;
+    }
+    
+    let res = await fetch(url, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
     });
+
     if (res.ok) {
       const data = await res.json();
       return data.displayName || null;
+    } else if (groupId && groupId !== 'private') {
+      // Fallback to standard profile endpoint if group member lookup failed
+      const fallbackRes = await fetch(`https://api.line.me/v2/bot/profile/${userId}`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+      if (fallbackRes.ok) {
+        const data = await fallbackRes.json();
+        return data.displayName || null;
+      }
     }
   } catch (err) {
     console.error(`Error fetching profile for ${userId}:`, err);
@@ -169,12 +186,24 @@ export async function GET(req: NextRequest) {
           try {
             const profileDoc = await db.collection('line_profiles').doc(userId).get();
             const profileData = profileDoc.data();
-            if (profileDoc.exists && profileData) {
+            
+            // Check if we have a valid cached name that is not a placeholder dummy
+            const isValidCache = profileDoc.exists && 
+                                 profileData && 
+                                 profileData.displayName && 
+                                 !profileData.displayName.startsWith('ผู้ใช้ LINE (');
+
+            if (isValidCache) {
               userNamesMap[userId] = profileData.displayName;
             } else {
+              // Find the first report of this user to get a representative groupId
+              const userReports = userReportsMap[userId] || [];
+              const repReport = userReports.find(r => r.groupId && r.groupId !== 'private' && !r.groupId.startsWith('private_'));
+              const repGroupId = repReport ? repReport.groupId : undefined;
+
               let displayName = `ผู้ใช้ LINE (${userId.substring(0, 6)})`;
               if (accessToken) {
-                const fetchedName = await getLineUserProfile(userId, accessToken);
+                const fetchedName = await getLineUserProfile(userId, accessToken, repGroupId);
                 if (fetchedName) {
                   displayName = fetchedName;
                   await db.collection('line_profiles').doc(userId).set({ displayName });

@@ -52,6 +52,56 @@ async function trackWriteAndCleanup(data: any) {
   }
 }
 
+async function cacheUserProfileInBackground(userId: string, groupId: string) {
+  if (!db) return;
+  try {
+    const profileRef = db.collection('line_profiles').doc(userId);
+    const profileDoc = await profileRef.get();
+    const profileData = profileDoc.data();
+    
+    const isValidCache = profileDoc.exists && 
+                         profileData && 
+                         profileData.displayName && 
+                         !profileData.displayName.startsWith('ผู้ใช้ LINE (');
+
+    if (!isValidCache) {
+      const accessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+      if (accessToken) {
+        let url = `https://api.line.me/v2/bot/profile/${userId}`;
+        if (groupId && groupId !== 'private' && groupId !== 'unknown') {
+          url = `https://api.line.me/v2/bot/group/${groupId}/member/${userId}`;
+        }
+        
+        const res = await fetch(url, {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          if (data.displayName) {
+            await profileRef.set({ displayName: data.displayName }, { merge: true });
+            console.log(`Pre-cached display name for user ${userId}: ${data.displayName}`);
+          }
+        } else if (groupId && groupId !== 'private') {
+          // Fallback to standard profile endpoint
+          const fallbackRes = await fetch(`https://api.line.me/v2/bot/profile/${userId}`, {
+            headers: { Authorization: `Bearer ${accessToken}` }
+          });
+          if (fallbackRes.ok) {
+            const data = await fallbackRes.json();
+            if (data.displayName) {
+              await profileRef.set({ displayName: data.displayName }, { merge: true });
+              console.log(`Pre-cached display name (fallback) for user ${userId}: ${data.displayName}`);
+            }
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Error pre-caching user profile:', err);
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const signature = req.headers.get('x-line-signature');
@@ -85,6 +135,11 @@ export async function POST(req: NextRequest) {
         const groupId = event.source?.groupId || event.source?.roomId || 'private';
         const timestamp = event.timestamp;
         const message = event.message;
+
+        // Pre-cache profile asynchronously in background
+        if (userId !== 'unknown') {
+          cacheUserProfileInBackground(userId, groupId).catch(err => console.error('Cache profile error:', err));
+        }
 
         if (message.type === 'text') {
           const reportData = {
