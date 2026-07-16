@@ -50,7 +50,7 @@ export default function Dashboard() {
   // Pagination State
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [itemsPerPage, setItemsPerPage] = useState<number>(10);
-  const [viewMode, setViewMode] = useState<'detailed' | 'compact'>('detailed');
+  const [viewMode, setViewMode] = useState<'detailed' | 'compact'>('compact');
 
   // Theme State
   const [darkMode, setDarkMode] = useState<boolean>(true);
