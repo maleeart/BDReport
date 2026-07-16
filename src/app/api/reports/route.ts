@@ -352,32 +352,45 @@ export async function GET(req: NextRequest) {
     // Sort all slide entries chronologically across the week
     reportsList.sort((a, b) => a.sortTimestamp - b.sortTimestamp);
 
-    // Consolidate all reports under the main actual group (e.g. EGAT IOT)
-    let mainGroupId = 'EGAT_IOT';
-    let mainGroupName = 'EGAT IOT';
+    // Get all actual groups
+    let actualGroups: Array<{ groupId: string; groupName: string }> = [];
     try {
       const groupsSnapshot = await db.collection('line_groups').get();
-      const actualGroups = groupsSnapshot.docs
-        .map(doc => ({ id: doc.id, name: doc.data()?.groupName }))
-        .filter(g => g.name && !g.name.startsWith('แชทส่วนตัว') && !g.id.startsWith('private_') && !g.name.startsWith('กลุ่ม LINE'));
-      
-      if (actualGroups.length > 0) {
-        mainGroupId = actualGroups[0].id;
-        mainGroupName = actualGroups[0].name;
-      }
+      actualGroups = groupsSnapshot.docs
+        .map(doc => ({ groupId: doc.id, groupName: doc.data()?.groupName }))
+        .filter(g => g.groupName && !g.groupName.startsWith('แชทส่วนตัว') && !g.groupId.startsWith('private_') && !g.groupName.startsWith('กลุ่ม LINE'));
     } catch (err) {
-      console.error('Error fetching main group:', err);
+      console.error('Error fetching actual groups:', err);
     }
 
+    // Default main group fallback
+    const mainGroupId = actualGroups.length > 0 ? actualGroups[0].groupId : 'EGAT_IOT';
+    const mainGroupName = actualGroups.length > 0 ? actualGroups[0].groupName : 'EGAT IOT';
+
+    // Map reports to their correct groups
     reportsList.forEach((rep) => {
-      rep.groupId = mainGroupId;
-      rep.groupName = mainGroupName;
+      // If the report's groupId is a private chat, consolidate it to the main group
+      if (!rep.groupId || rep.groupId === 'private' || rep.groupId.startsWith('private_')) {
+        rep.groupId = mainGroupId;
+        rep.groupName = mainGroupName;
+      } else {
+        // Find the group name from our actualGroups list
+        const matchingGroup = actualGroups.find(g => g.groupId === rep.groupId);
+        if (matchingGroup) {
+          rep.groupName = matchingGroup.groupName;
+        }
+      }
     });
 
-    const groupsList = [{
-      groupId: mainGroupId,
-      groupName: mainGroupName
-    }];
+    // Make the groups list dynamically contain all unique groups present in the reports
+    const uniqueGroupIds = Array.from(new Set(reportsList.map(r => r.groupId)));
+    const groupsList = uniqueGroupIds.map(gid => {
+      const gInfo = actualGroups.find(g => g.groupId === gid);
+      return {
+        groupId: gid,
+        groupName: gInfo ? gInfo.groupName : (gid === mainGroupId ? mainGroupName : `กลุ่ม LINE (${gid.substring(0, 6)})`)
+      };
+    });
 
     return NextResponse.json({
       date: thaiWeekRange,
