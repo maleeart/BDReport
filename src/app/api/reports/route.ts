@@ -253,7 +253,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // For each user, cluster their messages into separate "tasks" based on a 1-minute (60,000 ms) window
+    // For each user, cluster their messages into separate "tasks" based on a 3-minute (180,000 ms) window
     for (const [userId, reports] of Object.entries(userReportsMap)) {
       // Sort reports chronologically
       reports.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
@@ -268,7 +268,7 @@ export async function GET(req: NextRequest) {
           const lastReport = currentGroup[currentGroup.length - 1];
           const timeDiff = Math.abs((report.timestamp || 0) - (lastReport.timestamp || 0));
 
-          if (timeDiff <= 60000) { // Proximity within 1 minute
+          if (timeDiff <= 180000) { // Proximity within 3 minutes
             currentGroup.push(report);
           } else {
             taskGroups.push(currentGroup);
