@@ -253,7 +253,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // For each user, cluster their messages into separate "tasks" based on a 3-minute (180,000 ms) window
+    // For each user, cluster their messages into separate "tasks" using an intelligent content-aware window
     for (const [userId, reports] of Object.entries(userReportsMap)) {
       // Sort reports chronologically
       reports.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
@@ -268,11 +268,21 @@ export async function GET(req: NextRequest) {
           const lastReport = currentGroup[currentGroup.length - 1];
           const timeDiff = Math.abs((report.timestamp || 0) - (lastReport.timestamp || 0));
 
-          if (timeDiff <= 180000) { // Proximity within 3 minutes
-            currentGroup.push(report);
-          } else {
+          // A job is considered "complete" if it already has both text and image
+          const hasText = currentGroup.some(r => r.type === 'text');
+          const hasImage = currentGroup.some(r => r.type === 'image');
+          const isCompleteJob = hasText && hasImage;
+
+          // Split conditions:
+          // 1. Time gap between messages is more than 5 minutes
+          // 2. Incoming is a new image, but the current group already has both text and image (a complete job has already been reported)
+          const shouldSplit = timeDiff > 300000 || (report.type === 'image' && isCompleteJob);
+
+          if (shouldSplit) {
             taskGroups.push(currentGroup);
             currentGroup = [report];
+          } else {
+            currentGroup.push(report);
           }
         }
       }
