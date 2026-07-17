@@ -512,16 +512,69 @@ export default function Dashboard() {
           </div>
           <div style={styles.topStatusRight}>
             <span style={styles.topStatusLabel}>กลุ่ม:</span>
-            <strong 
-              style={styles.groupNameHighlight} 
-              title={groups.map(g => g.groupName).filter(Boolean).join(', ')}
-            >
-              {(() => {
-                const joined = groups.map(g => g.groupName).filter(Boolean).join(', ');
-                const fallback = joined || 'EGAT IOT';
-                return fallback.length > 65 ? fallback.substring(0, 65) + '...' : fallback;
-              })()}
-            </strong>
+            {(() => {
+              const GROUP_COLORS = [
+                { bg: 'rgba(59, 130, 246, 0.15)', text: '#60A5FA', textLight: '#1D4ED8', border: 'rgba(59, 130, 246, 0.3)' }, // Blue
+                { bg: 'rgba(16, 185, 129, 0.15)', text: '#34D399', textLight: '#047857', border: 'rgba(16, 185, 129, 0.3)' }, // Emerald
+                { bg: 'rgba(168, 85, 247, 0.15)', text: '#C084FC', textLight: '#7E22CE', border: 'rgba(168, 85, 247, 0.3)' }, // Purple
+                { bg: 'rgba(249, 115, 橙, 0.15)', text: '#FB923C', textLight: '#C2410C', border: 'rgba(249, 115, 22, 0.3)' }, // Orange (Wait: type fix: 22 instead of 橙!)
+              ];
+              // Let's write the colors array properly with numeric values
+              const CLEAN_COLORS = [
+                { bg: 'rgba(59, 130, 246, 0.12)', text: '#60A5FA', textLight: '#1D4ED8', border: 'rgba(59, 130, 246, 0.25)' }, // Blue
+                { bg: 'rgba(16, 185, 129, 0.12)', text: '#34D399', textLight: '#047857', border: 'rgba(16, 185, 129, 0.25)' }, // Emerald
+                { bg: 'rgba(168, 85, 247, 0.12)', text: '#C084FC', textLight: '#7E22CE', border: 'rgba(168, 85, 247, 0.25)' }, // Purple
+                { bg: 'rgba(249, 115, 22, 0.12)', text: '#FB923C', textLight: '#C2410C', border: 'rgba(249, 115, 22, 0.25)' }, // Orange
+                { bg: 'rgba(236, 72, 153, 0.12)', text: '#F472B6', textLight: '#BE185D', border: 'rgba(236, 72, 153, 0.25)' }, // Pink
+                { bg: 'rgba(6, 182, 212, 0.12)', text: '#22D3EE', textLight: '#0369A1', border: 'rgba(6, 182, 212, 0.25)' }, // Cyan
+              ];
+
+              return (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+                  {groups.length > 0 ? (
+                    groups.map((g, idx) => {
+                      const color = CLEAN_COLORS[idx % CLEAN_COLORS.length];
+                      return (
+                        <span
+                          key={g.groupId}
+                          style={{
+                            backgroundColor: color.bg,
+                            color: darkMode ? color.text : color.textLight,
+                            border: `1.5px solid ${color.border}`,
+                            borderRadius: '12px',
+                            padding: '3px 10px',
+                            fontSize: '0.82rem',
+                            fontWeight: 700,
+                            display: 'inline-block',
+                            maxWidth: '180px',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                          title={g.groupName}
+                        >
+                          {g.groupName}
+                        </span>
+                      );
+                    })
+                  ) : (
+                    <span
+                      style={{
+                        backgroundColor: 'rgba(234, 179, 8, 0.12)',
+                        color: '#EAB308',
+                        border: '1.5px solid rgba(234, 179, 8, 0.25)',
+                        borderRadius: '12px',
+                        padding: '3px 10px',
+                        fontSize: '0.82rem',
+                        fontWeight: 700,
+                      }}
+                    >
+                      EGAT IOT
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         </div>
         {/* Date & Group Selector Section */}
