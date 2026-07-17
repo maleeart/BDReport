@@ -268,15 +268,35 @@ export async function GET(req: NextRequest) {
           const lastReport = currentGroup[currentGroup.length - 1];
           const timeDiff = Math.abs((report.timestamp || 0) - (lastReport.timestamp || 0));
 
-          // A job is considered "complete" if it already has both text and image
+          // Check contents of current group
           const hasText = currentGroup.some(r => r.type === 'text');
           const hasImage = currentGroup.some(r => r.type === 'image');
           const isCompleteJob = hasText && hasImage;
 
           // Split conditions:
-          // 1. Time gap between messages is more than 5 minutes
-          // 2. Incoming is a new image, but the current group already has both text and image (a complete job has already been reported)
-          const shouldSplit = timeDiff > 300000 || (report.type === 'image' && isCompleteJob);
+          // 1. Time gap between messages is more than 5 minutes (300,000 ms)
+          const isTimeGapLarge = timeDiff > 300000;
+
+          // 2. Incoming is a text message, and the current group already has a text message (new job description)
+          const isSecondText = report.type === 'text' && hasText;
+
+          // 3. Incoming is an image, the current group is already complete (has both text and image),
+          // AND there is another text message coming up soon (within 2 minutes / 120,000 ms)
+          // which implies this image belongs to that upcoming new job description.
+          let isFutureJobStart = false;
+          if (report.type === 'image' && isCompleteJob) {
+            const index = reports.indexOf(report);
+            const remaining = reports.slice(index + 1);
+            const nextText = remaining.find(r => r.type === 'text');
+            if (nextText) {
+              const timeDiffToNextText = Math.abs((nextText.timestamp || 0) - (report.timestamp || 0));
+              if (timeDiffToNextText <= 120000) { // 2 minutes
+                isFutureJobStart = true;
+              }
+            }
+          }
+
+          const shouldSplit = isTimeGapLarge || isSecondText || (report.type === 'image' && isCompleteJob && isFutureJobStart);
 
           if (shouldSplit) {
             taskGroups.push(currentGroup);
