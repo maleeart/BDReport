@@ -24,7 +24,10 @@ interface Group {
   groupName: string;
 }
 
-const DEFAULT_KEYWORDS = ['งาน', 'ใบงาน', 'ซ่อม', 'ใบแจ้งซ่อม', 'เลขที่', 'เปลี่ยน', 'ตรวจ', 'สำรวจ', 'test', 'ทดสอบ'];
+const KEYWORD_GROUPS = [
+  { name: 'งานบำรุงรักษา', keywords: ['งาน', 'ใบงาน', 'ซ่อม', 'ใบแจ้งซ่อม', 'เลขที่', 'เปลี่ยน', 'ตรวจ', 'สำรวจ', 'test', 'ทดสอบ', 'ท.', 'ต.', 'ล้าง'] },
+];
+const DEFAULT_KEYWORDS = KEYWORD_GROUPS.flatMap(g => g.keywords);
 
 // Helper to get current YYYY-Www ISO week string from a Date object in browser
 function getISOWeekString(date: Date): string {
@@ -206,6 +209,16 @@ export default function Dashboard() {
 
   const handleKeywordDeselectAll = () => {
     setSelectedKeywords([]);
+  };
+
+  const handleToggleGroup = (groupKeywords: string[]) => {
+    const allSelected = groupKeywords.every(kw => selectedKeywords.includes(kw));
+    if (allSelected) {
+      setSelectedKeywords(selectedKeywords.filter(kw => !groupKeywords.includes(kw)));
+    } else {
+      const merged = [...new Set([...selectedKeywords, ...groupKeywords])];
+      setSelectedKeywords(merged);
+    }
   };
 
   const handleDownload = () => {
@@ -676,20 +689,37 @@ export default function Dashboard() {
                   {/* Left Column: Pill Tags Selection */}
                   <div style={styles.filterColLeft}>
                     <h4 style={styles.colLabelSmall}>คำสำคัญเริ่มต้น:</h4>
-                    <div style={styles.chipsContainer}>
-                      {DEFAULT_KEYWORDS.map(kw => {
-                        const isSelected = selectedKeywords.includes(kw);
-                        return (
+                    {KEYWORD_GROUPS.map(group => {
+                      const allGroupSelected = group.keywords.every(kw => selectedKeywords.includes(kw));
+                      return (
+                        <div key={group.name} style={{ marginBottom: '12px' }}>
                           <button
-                            key={kw}
-                            onClick={() => handleToggleKeyword(kw)}
-                            style={isSelected ? styles.keywordChipActive : styles.keywordChipInactive}
+                            onClick={() => handleToggleGroup(group.keywords)}
+                            style={{
+                              ...(allGroupSelected ? styles.keywordChipActive : styles.keywordChipInactive),
+                              marginBottom: '8px',
+                              fontWeight: 700,
+                            }}
                           >
-                            {isSelected ? '✓ ' : ''}{kw}
+                            {allGroupSelected ? '✓ ' : ''}📂 {group.name}
                           </button>
-                        );
-                      })}
-                    </div>
+                          <div style={styles.chipsContainer}>
+                            {group.keywords.map(kw => {
+                              const isSelected = selectedKeywords.includes(kw);
+                              return (
+                                <button
+                                  key={kw}
+                                  onClick={() => handleToggleKeyword(kw)}
+                                  style={isSelected ? styles.keywordChipActive : styles.keywordChipInactive}
+                                >
+                                  {isSelected ? '✓ ' : ''}{kw}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                   
                   {/* Right Column: Custom Text Input */}
