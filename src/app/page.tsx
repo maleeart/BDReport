@@ -657,14 +657,33 @@ export default function Dashboard() {
         {!loading && reports.length > 0 && (
           <section style={styles.filterCard}>
             <div style={styles.filterHeader}>
-              <div style={styles.filterHeaderLeft}>
-                <span style={styles.filterStatusText}>
-                  {selectedKeywords.length > 0 || customKeywordInput.trim() ? (
-                    `🔍 กำลังกรองคำสำคัญที่ทำงานอยู่ (${selectedKeywords.length} คำเริ่มต้น${customKeywordInput.trim() ? `, เพิ่มเติม: ${customKeywordInput}` : ''})`
-                  ) : (
-                    '🔍 แสดงรายงานทั้งหมด (คลิกปุ่ม ⚙️ ปรับแต่งตัวกรอง เพื่อกรองข้อความ)'
-                  )}
-                </span>
+              <div style={{ ...styles.filterHeaderLeft, gap: '6px', flexWrap: 'wrap' }}>
+                <span style={{ ...styles.filterStatusText, marginRight: '4px' }}>🗂️ กลุ่มงาน:</span>
+                {KEYWORD_GROUPS.map(group => {
+                  const allGroupSelected = group.keywords.every(kw => selectedKeywords.includes(kw));
+                  return (
+                    <button
+                      key={group.name}
+                      onClick={() => handleToggleGroup(group.keywords)}
+                      style={{
+                        background: allGroupSelected
+                          ? 'linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%)'
+                          : (darkMode ? 'rgba(59,130,246,0.12)' : 'rgba(30,58,138,0.07)'),
+                        color: allGroupSelected ? '#fff' : (darkMode ? '#93C5FD' : '#1E3A8A'),
+                        border: allGroupSelected ? 'none' : (darkMode ? '1px solid rgba(59,130,246,0.4)' : '1px solid rgba(30,58,138,0.25)'),
+                        borderRadius: '20px',
+                        padding: '5px 14px',
+                        fontSize: '0.85rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        boxShadow: allGroupSelected ? '0 2px 8px rgba(30,58,138,0.25)' : 'none',
+                      }}
+                    >
+                      {allGroupSelected ? '✓ ' : ''}{group.name}
+                    </button>
+                  );
+                })}
               </div>
               <button
                 onClick={() => setShowFilterConfig(!showFilterConfig)}
