@@ -692,16 +692,36 @@ export default function Dashboard() {
                     {KEYWORD_GROUPS.map(group => {
                       const allGroupSelected = group.keywords.every(kw => selectedKeywords.includes(kw));
                       return (
-                        <div key={group.name} style={{ marginBottom: '12px' }}>
+                        <div key={group.name} style={{
+                          marginBottom: '12px',
+                          border: darkMode ? '1px solid rgba(59,130,246,0.35)' : '1px solid rgba(30,58,138,0.2)',
+                          borderRadius: '12px',
+                          padding: '12px 14px',
+                          background: darkMode ? 'rgba(59,130,246,0.06)' : 'rgba(30,58,138,0.04)',
+                        }}>
                           <button
                             onClick={() => handleToggleGroup(group.keywords)}
                             style={{
-                              ...(allGroupSelected ? styles.keywordChipActive : styles.keywordChipInactive),
-                              marginBottom: '8px',
+                              display: 'block',
+                              width: '100%',
+                              textAlign: 'left',
+                              background: allGroupSelected
+                                ? 'linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%)'
+                                : (darkMode ? 'rgba(59,130,246,0.15)' : 'rgba(30,58,138,0.08)'),
+                              color: allGroupSelected ? '#fff' : (darkMode ? '#93C5FD' : '#1E3A8A'),
+                              border: allGroupSelected ? 'none' : (darkMode ? '1.5px solid rgba(59,130,246,0.5)' : '1.5px solid rgba(30,58,138,0.3)'),
+                              borderRadius: '8px',
+                              padding: '10px 16px',
+                              fontSize: '1rem',
                               fontWeight: 700,
+                              cursor: 'pointer',
+                              marginBottom: '10px',
+                              letterSpacing: '0.02em',
+                              boxShadow: allGroupSelected ? '0 4px 10px rgba(30,58,138,0.25)' : 'none',
+                              transition: 'all 0.2s',
                             }}
                           >
-                            {allGroupSelected ? '✓ ' : ''}📂 {group.name}
+                            {allGroupSelected ? '✓ ' : '📂 '}{group.name}
                           </button>
                           <div style={styles.chipsContainer}>
                             {group.keywords.map(kw => {
@@ -710,7 +730,11 @@ export default function Dashboard() {
                                 <button
                                   key={kw}
                                   onClick={() => handleToggleKeyword(kw)}
-                                  style={isSelected ? styles.keywordChipActive : styles.keywordChipInactive}
+                                  style={{
+                                    ...(isSelected ? styles.keywordChipActive : styles.keywordChipInactive),
+                                    fontSize: '0.8rem',
+                                    padding: '5px 12px',
+                                  }}
                                 >
                                   {isSelected ? '✓ ' : ''}{kw}
                                 </button>
