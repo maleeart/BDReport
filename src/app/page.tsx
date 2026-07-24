@@ -70,6 +70,103 @@ export default function Dashboard() {
   const [editingText, setEditingText] = useState<string>('');
   const [showOriginalMap, setShowOriginalMap] = useState<Record<number, boolean>>({});
 
+  // Group Management States
+  const [showGroupManager, setShowGroupManager] = useState<boolean>(false);
+  const [allGroups, setAllGroups] = useState<any[]>([]);
+  const [loadingAllGroups, setLoadingAllGroups] = useState<boolean>(false);
+  const [adminPassword, setAdminPassword] = useState<string>('');
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(false);
+  const [adminPasswordInput, setAdminPasswordInput] = useState<string>('');
+  const [adminPasswordError, setAdminPasswordError] = useState<string | null>(null);
+
+  // Load admin session from sessionStorage on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedPass = sessionStorage.getItem('bdreport_admin_pass');
+      if (savedPass === '8888') {
+        setAdminPassword(savedPass);
+        setIsAdminAuthenticated(true);
+      }
+    }
+  }, []);
+
+  // Clear inputs and errors on modal close
+  useEffect(() => {
+    if (!showGroupManager) {
+      setAdminPasswordInput('');
+      setAdminPasswordError(null);
+    }
+  }, [showGroupManager]);
+
+  const handleVerifyAdminPassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (adminPasswordInput === '8888') {
+      setAdminPassword('8888');
+      setIsAdminAuthenticated(true);
+      setAdminPasswordError(null);
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('bdreport_admin_pass', '8888');
+      }
+    } else {
+      setAdminPasswordError('รหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง');
+    }
+  };
+
+  const fetchAllGroups = async () => {
+    if (!adminPassword && adminPasswordInput !== '8888') return;
+    setLoadingAllGroups(true);
+    try {
+      const res = await fetch(`/api/groups?t=${Date.now()}`, {
+        headers: {
+          'x-admin-password': adminPassword || '8888'
+        }
+      });
+      if (!res.ok) throw new Error('ไม่สามารถดึงข้อมูลกลุ่มทั้งหมดได้');
+      const data = await res.json();
+      setAllGroups(data.groups || []);
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || 'เกิดข้อผิดพลาดในการดึงข้อมูลกลุ่ม');
+    } finally {
+      setLoadingAllGroups(false);
+    }
+  };
+
+  const toggleGroupVisibility = async (groupId: string, currentHidden: boolean) => {
+    try {
+      const res = await fetch('/api/groups', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-password': adminPassword || '8888'
+        },
+        body: JSON.stringify({
+          groupId,
+          isHidden: !currentHidden,
+        }),
+      });
+
+      if (!res.ok) throw new Error('ไม่สามารถอัปเดตสถานะกลุ่มได้');
+      
+      // Update local state for allGroups
+      setAllGroups(prev =>
+        prev.map(g => g.groupId === groupId ? { ...g, isHidden: !currentHidden } : g)
+      );
+
+      // Refresh reports dashboard data
+      await fetchReports(selectedWeek);
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || 'เกิดข้อผิดพลาดในการเปลี่ยนสถานะกลุ่ม');
+    }
+  };
+
+  useEffect(() => {
+    if (showGroupManager && isAdminAuthenticated) {
+      fetchAllGroups();
+    }
+  }, [showGroupManager, isAdminAuthenticated]);
+
   // Set default week to current week on mount
   useEffect(() => {
     const today = new Date();
@@ -489,6 +586,233 @@ export default function Dashboard() {
           background: linear-gradient(135deg, #FDE047 0%, #F59E0B 100%);
           box-shadow: 0 6px 20px ${darkMode ? 'rgba(234, 179, 8, 0.45)' : 'rgba(234, 179, 8, 0.35)'};
         }
+
+        /* 4. Manage Groups Button (Sleek Outline style, purple/indigo theme) */
+        .bdreport-btn-manage-groups {
+          background-color: ${darkMode ? 'rgba(99, 102, 241, 0.12)' : 'rgba(99, 102, 241, 0.08)'};
+          color: ${darkMode ? '#A5B4FC' : '#4F46E5'};
+          border: 1.5px solid ${darkMode ? 'rgba(99, 102, 241, 0.3)' : 'rgba(99, 102, 241, 0.25)'};
+        }
+        .bdreport-btn-manage-groups:hover {
+          background-color: ${darkMode ? 'rgba(99, 102, 241, 0.25)' : 'rgba(99, 102, 241, 0.15)'};
+          border-color: #6366F1;
+          color: ${darkMode ? '#C7D2FE' : '#4338CA'};
+          box-shadow: 0 4px 12px ${darkMode ? 'rgba(99, 102, 241, 0.2)' : 'rgba(99, 102, 241, 0.15)'};
+        }
+
+        /* Group Manager Modal Styles */
+        .bdreport-modal-backdrop {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background-color: ${darkMode ? 'rgba(15, 23, 42, 0.65)' : 'rgba(15, 23, 42, 0.4)'};
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+          animation: bdreport-fade-in 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .bdreport-modal-card {
+          width: 95%;
+          max-width: 550px;
+          max-height: 80vh;
+          background-color: ${darkMode ? '#1E293B' : '#FFFFFF'};
+          border: 1px solid ${darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)'};
+          border-radius: 16px;
+          box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          animation: bdreport-slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .bdreport-modal-header {
+          padding: 16px 20px;
+          border-bottom: 1px solid ${darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)'};
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        .bdreport-modal-title {
+          margin: 0;
+          font-size: 1.15rem;
+          font-weight: 700;
+          color: ${darkMode ? '#F8FAFC' : '#0F172A'};
+        }
+
+        .bdreport-modal-close {
+          background: none;
+          border: none;
+          font-size: 1.5rem;
+          cursor: pointer;
+          color: ${darkMode ? '#94A3B8' : '#64748B'};
+          transition: color 0.15s ease;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0;
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+        }
+
+        .bdreport-modal-close:hover {
+          color: ${darkMode ? '#F1F5F9' : '#0F172A'};
+          background-color: ${darkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)'};
+        }
+
+        .bdreport-modal-body {
+          padding: 20px;
+          overflow-y: auto;
+          flex: 1;
+        }
+
+        .bdreport-modal-footer {
+          padding: 14px 20px;
+          border-top: 1px solid ${darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)'};
+          display: flex;
+          justify-content: flex-end;
+          background-color: ${darkMode ? 'rgba(15, 23, 42, 0.2)' : 'rgba(248, 250, 252, 0.5)'};
+        }
+
+        .bdreport-groups-list {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .bdreport-group-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 12px 14px;
+          background-color: ${darkMode ? 'rgba(51, 65, 85, 0.25)' : 'rgba(241, 245, 249, 0.5)'};
+          border: 1px solid ${darkMode ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.03)'};
+          border-radius: 10px;
+          transition: all 0.2s ease;
+        }
+
+        .bdreport-group-row:hover {
+          background-color: ${darkMode ? 'rgba(51, 65, 85, 0.4)' : 'rgba(241, 245, 249, 0.85)'};
+        }
+
+        .bdreport-group-info {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          max-width: 70%;
+        }
+
+        .bdreport-group-name {
+          font-weight: 600;
+          font-size: 0.95rem;
+          color: ${darkMode ? '#E2E8F0' : '#1E293B'};
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+
+        .bdreport-group-id {
+          font-size: 0.72rem;
+          color: ${darkMode ? '#64748B' : '#94A3B8'};
+          font-family: monospace;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .bdreport-group-status-badge {
+          display: inline-flex;
+          align-items: center;
+          padding: 1.5px 8px;
+          border-radius: 10px;
+          font-size: 0.68rem;
+          font-weight: 700;
+        }
+
+        .bdreport-group-status-badge-visible {
+          background-color: rgba(16, 185, 129, 0.12);
+          color: ${darkMode ? '#34D399' : '#059669'};
+        }
+
+        .bdreport-group-status-badge-hidden {
+          background-color: rgba(239, 68, 68, 0.12);
+          color: ${darkMode ? '#F87171' : '#DC2626'};
+        }
+
+        /* Toggle Actions */
+        .bdreport-btn-toggle-visibility {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 0.8rem;
+          font-weight: 600;
+          padding: 6px 12px;
+          border-radius: 8px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          border: 1.5px solid transparent;
+          font-family: inherit;
+        }
+
+        .bdreport-btn-toggle-visibility-hide {
+          background-color: ${darkMode ? 'rgba(239, 68, 68, 0.1)' : 'rgba(239, 68, 68, 0.05)'};
+          color: ${darkMode ? '#F87171' : '#DC2626'};
+          border-color: ${darkMode ? 'rgba(239, 68, 68, 0.25)' : 'rgba(239, 68, 68, 0.2)'};
+        }
+        .bdreport-btn-toggle-visibility-hide:hover {
+          background-color: ${darkMode ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.1)'};
+          border-color: #EF4444;
+        }
+
+        .bdreport-btn-toggle-visibility-show {
+          background-color: ${darkMode ? 'rgba(16, 185, 129, 0.1)' : 'rgba(16, 185, 129, 0.05)'};
+          color: ${darkMode ? '#34D399' : '#059669'};
+          border-color: ${darkMode ? 'rgba(16, 185, 129, 0.25)' : 'rgba(16, 185, 129, 0.2)'};
+        }
+        .bdreport-btn-toggle-visibility-show:hover {
+          background-color: ${darkMode ? 'rgba(16, 185, 129, 0.2)' : 'rgba(16, 185, 129, 0.1)'};
+          border-color: #10B981;
+        }
+
+        .bdreport-modal-btn-close {
+          background-color: ${darkMode ? '#334155' : '#F1F5F9'};
+          color: ${darkMode ? '#F1F5F9' : '#334155'};
+          border: 1px solid ${darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)'};
+          border-radius: 8px;
+          padding: 8px 16px;
+          font-weight: 600;
+          font-size: 0.88rem;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .bdreport-modal-btn-close:hover {
+          background-color: ${darkMode ? '#475569' : '#E2E8F0'};
+        }
+
+        .bdreport-modal-loading {
+          text-align: center;
+          padding: 30px 0;
+          color: ${darkMode ? '#94A3B8' : '#64748B'};
+          font-weight: 500;
+        }
+
+        @keyframes bdreport-fade-in {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        @keyframes bdreport-slide-up {
+          from { transform: translateY(20px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
       `}</style>
       {/* Light / Dark Mode Toggle button */}
       <button 
@@ -642,6 +966,12 @@ export default function Dashboard() {
               className="bdreport-btn bdreport-btn-backup"
             >
               📦 Backup photo
+            </button>
+            <button
+              onClick={() => setShowGroupManager(true)}
+              className="bdreport-btn bdreport-btn-manage-groups"
+            >
+              👥 จัดการกลุ่มแชท
             </button>
             <button
               onClick={handleDownload}
@@ -1181,6 +1511,109 @@ export default function Dashboard() {
           <span className="bdreport-footer-admin">ผู้ดูแลระบบ: นายตวงเพชร ชัยยานนท์ วศ.4 หบอว-ธ. กบห-ธ. ชธธ.</span>
         </p>
       </footer>
+
+      {showGroupManager && (
+        <div className="bdreport-modal-backdrop" onClick={() => setShowGroupManager(false)}>
+          <div className="bdreport-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="bdreport-modal-header">
+              <h3 className="bdreport-modal-title">👥 จัดการกลุ่มแชท LINE</h3>
+              <button onClick={() => setShowGroupManager(false)} className="bdreport-modal-close">&times;</button>
+            </div>
+            <div className="bdreport-modal-body">
+              {!isAdminAuthenticated ? (
+                <form onSubmit={handleVerifyAdminPassword} style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '10px 0' }}>
+                  <div style={{ textAlign: 'center', marginBottom: '8px' }}>
+                    <div style={{ fontSize: '3rem', marginBottom: '8px' }}>🔒</div>
+                    <div style={{ fontWeight: 600, color: darkMode ? '#F8FAFC' : '#0F172A' }}>ป้อนรหัสผ่านเพื่อเข้าสู่โหมดผู้ดูแลระบบ</div>
+                    <div style={{ fontSize: '0.85rem', color: darkMode ? '#94A3B8' : '#64748B', marginTop: '4px' }}>
+                      เฉพาะผู้ดูแลระบบเท่านั้นที่สามารถจัดการการซ่อน/แสดงกลุ่มแชทได้
+                    </div>
+                  </div>
+                  
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <input
+                      type="password"
+                      placeholder="รหัสผ่านผู้ดูแลระบบ"
+                      value={adminPasswordInput}
+                      onChange={(e) => setAdminPasswordInput(e.target.value)}
+                      autoFocus
+                      style={{
+                        width: '100%',
+                        padding: '10px 14px',
+                        borderRadius: '8px',
+                        backgroundColor: darkMode ? '#0F172A' : '#F1F5F9',
+                        border: `1.5px solid ${adminPasswordError ? '#EF4444' : (darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)')}`,
+                        color: darkMode ? '#F8FAFC' : '#0F172A',
+                        fontSize: '0.95rem',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                    {adminPasswordError && (
+                      <span style={{ color: '#EF4444', fontSize: '0.8rem', fontWeight: 600 }}>
+                        ⚠️ {adminPasswordError}
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                    <button
+                      type="submit"
+                      className="bdreport-btn bdreport-btn-download"
+                      style={{ flex: 1, height: '38px', fontSize: '0.9rem' }}
+                    >
+                      ยืนยันรหัสผ่าน
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowGroupManager(false)}
+                      className="bdreport-modal-btn-close"
+                      style={{ flex: 1, height: '38px', fontSize: '0.9rem', border: `1px solid ${darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}` }}
+                    >
+                      ยกเลิก
+                    </button>
+                  </div>
+                </form>
+              ) : loadingAllGroups ? (
+                <div className="bdreport-modal-loading">กำลังโหลดรายชื่อกลุ่มแชท...</div>
+              ) : allGroups.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '30px 0', color: '#94A3B8', fontWeight: 500 }}>ไม่พบกลุ่มแชทในระบบ</div>
+              ) : (
+                <div className="bdreport-groups-list">
+                  {allGroups.map((g) => (
+                    <div key={g.groupId} className="bdreport-group-row">
+                      <div className="bdreport-group-info">
+                        <div className="bdreport-group-name">
+                          {g.groupName}
+                          <span className={`bdreport-group-status-badge ${g.isHidden ? 'bdreport-group-status-badge-hidden' : 'bdreport-group-status-badge-visible'}`}>
+                            {g.isHidden ? 'ซ่อนอยู่' : 'แสดงผล'}
+                          </span>
+                        </div>
+                        <div className="bdreport-group-id" title={g.groupId}>ID: {g.groupId}</div>
+                      </div>
+                      <div className="bdreport-group-actions">
+                        <button
+                          onClick={() => toggleGroupVisibility(g.groupId, g.isHidden)}
+                          className={`bdreport-btn-toggle-visibility ${g.isHidden ? 'bdreport-btn-toggle-visibility-show' : 'bdreport-btn-toggle-visibility-hide'}`}
+                        >
+                          {g.isHidden ? '👁️ แสดงกลุ่ม' : '🚫 ซ่อนกลุ่ม'}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            {isAdminAuthenticated && (
+              <div className="bdreport-modal-footer">
+                <button onClick={() => setShowGroupManager(false)} className="bdreport-modal-btn-close">
+                  ปิดหน้าต่าง
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -413,19 +413,30 @@ export async function GET(req: NextRequest) {
     reportsList.sort((a, b) => a.sortTimestamp - b.sortTimestamp);
 
     // Get all actual groups
-    let actualGroups: Array<{ groupId: string; groupName: string }> = [];
+    let actualGroups: Array<{ groupId: string; groupName: string; isHidden?: boolean }> = [];
     try {
       const groupsSnapshot = await db.collection('line_groups').get();
       actualGroups = groupsSnapshot.docs
-        .map(doc => ({ groupId: doc.id, groupName: doc.data()?.groupName }))
+        .map(doc => ({ 
+          groupId: doc.id, 
+          groupName: doc.data()?.groupName,
+          isHidden: doc.data()?.isHidden || false
+        }))
         .filter(g => g.groupName && !g.groupName.startsWith('แชทส่วนตัว') && !g.groupId.startsWith('private_') && !g.groupName.startsWith('กลุ่ม LINE'));
     } catch (err) {
       console.error('Error fetching actual groups:', err);
     }
 
+    // Filter out reports from hidden groups
+    const hiddenGroupIds = new Set(actualGroups.filter(g => g.isHidden).map(g => g.groupId));
+    reportsList = reportsList.filter(rep => !hiddenGroupIds.has(rep.groupId));
+
+    // Active groups only for mapping and default group
+    const activeGroups = actualGroups.filter(g => !g.isHidden);
+
     // Default main group fallback
-    const mainGroupId = actualGroups.length > 0 ? actualGroups[0].groupId : 'EGAT_IOT';
-    const mainGroupName = actualGroups.length > 0 ? actualGroups[0].groupName : 'EGAT IOT';
+    const mainGroupId = activeGroups.length > 0 ? activeGroups[0].groupId : 'EGAT_IOT';
+    const mainGroupName = activeGroups.length > 0 ? activeGroups[0].groupName : 'EGAT IOT';
 
     // Map reports to their correct groups
     reportsList.forEach((rep) => {
@@ -434,8 +445,8 @@ export async function GET(req: NextRequest) {
         rep.groupId = mainGroupId;
         rep.groupName = mainGroupName;
       } else {
-        // Find the group name from our actualGroups list
-        const matchingGroup = actualGroups.find(g => g.groupId === rep.groupId);
+        // Find the group name from our activeGroups list
+        const matchingGroup = activeGroups.find(g => g.groupId === rep.groupId);
         if (matchingGroup) {
           rep.groupName = matchingGroup.groupName;
         }
@@ -445,7 +456,7 @@ export async function GET(req: NextRequest) {
     // Make the groups list dynamically contain all unique groups present in the reports
     const uniqueGroupIds = Array.from(new Set(reportsList.map(r => r.groupId)));
     const groupsList = uniqueGroupIds.map(gid => {
-      const gInfo = actualGroups.find(g => g.groupId === gid);
+      const gInfo = activeGroups.find(g => g.groupId === gid);
       return {
         groupId: gid,
         groupName: gInfo ? gInfo.groupName : (gid === mainGroupId ? mainGroupName : `กลุ่ม LINE (${gid.substring(0, 6)})`)

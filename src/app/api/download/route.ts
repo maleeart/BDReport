@@ -34,6 +34,7 @@ export async function GET(req: NextRequest) {
     try {
       const groupsSnapshot = await db.collection('line_groups').get();
       const actualGroups = groupsSnapshot.docs
+        .filter(doc => !doc.data()?.isHidden)
         .map(doc => doc.data()?.groupName)
         .filter(name => name && !name.startsWith('แชทส่วนตัว') && !name.startsWith('private') && !name.startsWith('กลุ่ม LINE'));
       
