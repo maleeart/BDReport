@@ -19,15 +19,21 @@ interface Report {
   sortTimestamp: number;
 }
 
+interface KeywordGroup {
+  id?: string;
+  name: string;
+  keywords: string[];
+}
+
 interface Group {
   groupId: string;
   groupName: string;
 }
 
-const KEYWORD_GROUPS = [
+const DEFAULT_KEYWORD_GROUPS = [
   { name: 'งานบำรุงรักษา', keywords: ['งาน', 'ใบงาน', 'ซ่อม', 'ใบแจ้งซ่อม', 'เลขที่', 'เปลี่ยน', 'ตรวจ', 'สำรวจ', 'test', 'ทดสอบ', 'ท.', 'ต.', 'ล้าง', 'PM', 'ประจำ', 'เดือน', 'สัปดาห์', 'อาทิตย์'] },
 ];
-const DEFAULT_KEYWORDS = KEYWORD_GROUPS.flatMap(g => g.keywords);
+const DEFAULT_KEYWORDS = DEFAULT_KEYWORD_GROUPS.flatMap(g => g.keywords);
 
 // Helper to get current YYYY-Www ISO week string from a Date object in browser
 function getISOWeekString(date: Date): string {
@@ -79,6 +85,40 @@ export default function Dashboard() {
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(false);
   const [adminPasswordInput, setAdminPasswordInput] = useState<string>('');
   const [adminPasswordError, setAdminPasswordError] = useState<string | null>(null);
+
+  // Admin Dashboard Keyword States
+  const [adminTab, setAdminTab] = useState<'groups' | 'keywords'>('groups');
+  const [newKeywordGroupName, setNewKeywordGroupName] = useState<string>('');
+  const [newKeywordList, setNewKeywordList] = useState<string[]>([]);
+  const [currentNewKeywordInput, setCurrentNewKeywordInput] = useState<string>('');
+
+  // Keyword Groups Dynamic State
+  const [keywordGroups, setKeywordGroups] = useState<KeywordGroup[]>(DEFAULT_KEYWORD_GROUPS);
+
+  const fetchKeywordGroups = async () => {
+    try {
+      const res = await fetch(`/api/keyword-groups?t=${Date.now()}`);
+      if (!res.ok) throw new Error('ไม่สามารถดึงข้อมูลกลุ่มคำสำคัญได้');
+      const data = await res.json();
+      const groups = data.groups || DEFAULT_KEYWORD_GROUPS;
+      setKeywordGroups(groups);
+      
+      // Populate selectedKeywords with all keywords on initial mount
+      setSelectedKeywords(prev => {
+        if (prev.length === 0 || prev === DEFAULT_KEYWORDS) {
+          return groups.flatMap((g: any) => g.keywords);
+        }
+        return prev;
+      });
+    } catch (err) {
+      console.error('Error loading keyword groups:', err);
+    }
+  };
+
+  // Fetch keyword groups on mount
+  useEffect(() => {
+    fetchKeywordGroups();
+  }, []);
 
   // Load admin session from sessionStorage on mount
   useEffect(() => {
@@ -159,6 +199,81 @@ export default function Dashboard() {
     } catch (err: any) {
       console.error(err);
       alert(err.message || 'เกิดข้อผิดพลาดในการเปลี่ยนสถานะกลุ่ม');
+    }
+  };
+
+  const handleAddNewKeywordWord = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const cleanWord = currentNewKeywordInput.trim();
+    if (cleanWord && !newKeywordList.includes(cleanWord)) {
+      setNewKeywordList([...newKeywordList, cleanWord]);
+      setCurrentNewKeywordInput('');
+    }
+  };
+
+  const handleRemoveNewKeywordWord = (word: string) => {
+    setNewKeywordList(newKeywordList.filter(w => w !== word));
+  };
+
+  const handleSaveKeywordGroup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanName = newKeywordGroupName.trim();
+    if (!cleanName) {
+      alert('กรุณากรอกชื่อกลุ่มคำสำคัญ');
+      return;
+    }
+    if (newKeywordList.length === 0) {
+      alert('กรุณาเพิ่มคำสำคัญในการค้นหาอย่างน้อย 1 คำ');
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/keyword-groups', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-password': adminPassword || '8888'
+        },
+        body: JSON.stringify({
+          name: cleanName,
+          keywords: newKeywordList
+        })
+      });
+
+      if (!res.ok) throw new Error('ไม่สามารถบันทึกกลุ่มคำสำคัญใหม่ได้');
+      
+      // Reset form
+      setNewKeywordGroupName('');
+      setNewKeywordList([]);
+      setCurrentNewKeywordInput('');
+      
+      // Reload keyword groups
+      await fetchKeywordGroups();
+      alert('บันทึกกลุ่มคำสำคัญใหม่เรียบร้อยแล้ว');
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || 'เกิดข้อผิดพลาดในการบันทึกกลุ่มคำสำคัญ');
+    }
+  };
+
+  const handleDeleteKeywordGroup = async (id: string) => {
+    if (!window.confirm('คุณแน่ใจหรือไม่ที่จะลบกลุ่มคำสำคัญนี้?')) return;
+    
+    try {
+      const res = await fetch(`/api/keyword-groups?id=${id}`, {
+        method: 'DELETE',
+        headers: {
+          'x-admin-password': adminPassword || '8888'
+        }
+      });
+
+      if (!res.ok) throw new Error('ไม่สามารถลบกลุ่มคำสำคัญได้');
+
+      // Reload
+      await fetchKeywordGroups();
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || 'เกิดข้อผิดพลาดในการลบกลุ่มคำสำคัญ');
     }
   };
 
@@ -302,7 +417,7 @@ export default function Dashboard() {
   };
 
   const handleKeywordSelectAll = () => {
-    setSelectedKeywords(DEFAULT_KEYWORDS);
+    setSelectedKeywords(keywordGroups.flatMap(g => g.keywords));
   };
 
   const handleKeywordDeselectAll = () => {
@@ -1001,7 +1116,7 @@ export default function Dashboard() {
             <div style={styles.filterHeader}>
               <div style={{ ...styles.filterHeaderLeft, gap: '6px', flexWrap: 'wrap' }}>
                 <span style={{ ...styles.filterStatusText, marginRight: '4px' }}>🗂️ กลุ่มงาน:</span>
-                {KEYWORD_GROUPS.map(group => {
+                {keywordGroups.map(group => {
                   const allGroupSelected = group.keywords.every(kw => selectedKeywords.includes(kw));
                   return (
                     <button
@@ -1050,7 +1165,7 @@ export default function Dashboard() {
                   {/* Left Column: Pill Tags Selection */}
                   <div style={styles.filterColLeft}>
                     <h4 style={styles.colLabelSmall}>คำสำคัญเริ่มต้น:</h4>
-                    {KEYWORD_GROUPS.map(group => {
+                    {keywordGroups.map(group => {
                       const allGroupSelected = group.keywords.every(kw => selectedKeywords.includes(kw));
                       return (
                         <div key={group.name} style={{
@@ -1528,9 +1643,12 @@ export default function Dashboard() {
         <div className="bdreport-modal-backdrop" onClick={() => setShowGroupManager(false)}>
           <div className="bdreport-modal-card" onClick={(e) => e.stopPropagation()}>
             <div className="bdreport-modal-header">
-              <h3 className="bdreport-modal-title">👥 จัดการกลุ่มแชท LINE</h3>
+              <h3 className="bdreport-modal-title">
+                {isAdminAuthenticated ? '⚙️ แผงควบคุมผู้ดูแลระบบ' : '🔒 เข้าสู่ระบบผู้ดูแลระบบ'}
+              </h3>
               <button onClick={() => setShowGroupManager(false)} className="bdreport-modal-close">&times;</button>
             </div>
+            
             <div className="bdreport-modal-body">
               {!isAdminAuthenticated ? (
                 <form onSubmit={handleVerifyAdminPassword} style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '10px 0' }}>
@@ -1538,7 +1656,7 @@ export default function Dashboard() {
                     <div style={{ fontSize: '3rem', marginBottom: '8px' }}>🔒</div>
                     <div style={{ fontWeight: 600, color: darkMode ? '#F8FAFC' : '#0F172A' }}>ป้อนรหัสผ่านเพื่อเข้าสู่โหมดผู้ดูแลระบบ</div>
                     <div style={{ fontSize: '0.85rem', color: darkMode ? '#94A3B8' : '#64748B', marginTop: '4px' }}>
-                      เฉพาะผู้ดูแลระบบเท่านั้นที่สามารถจัดการการซ่อน/แสดงกลุ่มแชทได้
+                      เฉพาะผู้ดูแลระบบเท่านั้นที่สามารถจัดการข้อมูลระบบได้
                     </div>
                   </div>
                   
@@ -1586,36 +1704,267 @@ export default function Dashboard() {
                     </button>
                   </div>
                 </form>
-              ) : loadingAllGroups ? (
-                <div className="bdreport-modal-loading">กำลังโหลดรายชื่อกลุ่มแชท...</div>
-              ) : allGroups.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '30px 0', color: '#94A3B8', fontWeight: 500 }}>ไม่พบกลุ่มแชทในระบบ</div>
               ) : (
-                <div className="bdreport-groups-list">
-                  {allGroups.map((g) => (
-                    <div key={g.groupId} className="bdreport-group-row">
-                      <div className="bdreport-group-info">
-                        <div className="bdreport-group-name">
-                          {g.groupName}
-                          <span className={`bdreport-group-status-badge ${g.isHidden ? 'bdreport-group-status-badge-hidden' : 'bdreport-group-status-badge-visible'}`}>
-                            {g.isHidden ? 'ซ่อนอยู่' : 'แสดงผล'}
-                          </span>
+                <>
+                  {/* Tab Selector */}
+                  <div style={{ display: 'flex', borderBottom: `1px solid ${darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`, margin: '0 -20px 16px -20px', padding: '0 20px' }}>
+                    <button
+                      onClick={() => setAdminTab('groups')}
+                      style={{
+                        flex: 1,
+                        padding: '12px',
+                        background: 'none',
+                        border: 'none',
+                        borderBottom: adminTab === 'groups' ? '2.5px solid #6366F1' : 'none',
+                        color: adminTab === 'groups' ? (darkMode ? '#F8FAFC' : '#4F46E5') : (darkMode ? '#94A3B8' : '#64748B'),
+                        fontWeight: 750,
+                        cursor: 'pointer',
+                        fontSize: '0.92rem',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      👥 จัดการกลุ่มแชท LINE
+                    </button>
+                    <button
+                      onClick={() => setAdminTab('keywords')}
+                      style={{
+                        flex: 1,
+                        padding: '12px',
+                        background: 'none',
+                        border: 'none',
+                        borderBottom: adminTab === 'keywords' ? '2.5px solid #6366F1' : 'none',
+                        color: adminTab === 'keywords' ? (darkMode ? '#F8FAFC' : '#4F46E5') : (darkMode ? '#94A3B8' : '#64748B'),
+                        fontWeight: 750,
+                        cursor: 'pointer',
+                        fontSize: '0.92rem',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      🗂️ จัดการกลุ่มคำสำคัญ
+                    </button>
+                  </div>
+
+                  {/* Tab 1: Group Visibility */}
+                  {adminTab === 'groups' && (
+                    <>
+                      {loadingAllGroups ? (
+                        <div className="bdreport-modal-loading">กำลังโหลดรายชื่อกลุ่มแชท...</div>
+                      ) : allGroups.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '30px 0', color: '#94A3B8', fontWeight: 500 }}>ไม่พบกลุ่มแชทในระบบ</div>
+                      ) : (
+                        <div className="bdreport-groups-list">
+                          {allGroups.map((g) => (
+                            <div key={g.groupId} className="bdreport-group-row">
+                              <div className="bdreport-group-info">
+                                <div className="bdreport-group-name">
+                                  {g.groupName}
+                                  <span className={`bdreport-group-status-badge ${g.isHidden ? 'bdreport-group-status-badge-hidden' : 'bdreport-group-status-badge-visible'}`}>
+                                    {g.isHidden ? 'ซ่อนอยู่' : 'แสดงผล'}
+                                  </span>
+                                </div>
+                                <div className="bdreport-group-id" title={g.groupId}>ID: {g.groupId}</div>
+                              </div>
+                              <div className="bdreport-group-actions">
+                                <button
+                                  onClick={() => toggleGroupVisibility(g.groupId, g.isHidden)}
+                                  className={`bdreport-btn-toggle-visibility ${g.isHidden ? 'bdreport-btn-toggle-visibility-show' : 'bdreport-btn-toggle-visibility-hide'}`}
+                                >
+                                  {g.isHidden ? '👁️ แสดงกลุ่ม' : '🚫 ซ่อนกลุ่ม'}
+                                </button>
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                        <div className="bdreport-group-id" title={g.groupId}>ID: {g.groupId}</div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Tab 2: Keyword Group Management */}
+                  {adminTab === 'keywords' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                      
+                      {/* List of current keyword groups */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <h4 style={{ margin: '0 0 4px 0', fontSize: '0.95rem', fontWeight: 700, color: darkMode ? '#F8FAFC' : '#1E293B' }}>
+                          📋 กลุ่มคำสำคัญในปัจจุบัน ({keywordGroups.length})
+                        </h4>
+                        
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '180px', overflowY: 'auto', paddingRight: '4px' }}>
+                          {keywordGroups.map((group) => {
+                            const isSystemDefault = !group.id || group.name === 'งานบำรุงรักษา';
+                            return (
+                              <div
+                                key={group.id || group.name}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  padding: '10px 12px',
+                                  backgroundColor: darkMode ? 'rgba(51, 65, 85, 0.25)' : 'rgba(241, 245, 249, 0.6)',
+                                  border: `1px solid ${darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'}`,
+                                  borderRadius: '8px'
+                                }}
+                              >
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxWidth: '85%' }}>
+                                  <div style={{ fontWeight: 700, fontSize: '0.9rem', color: darkMode ? '#E2E8F0' : '#1E293B' }}>
+                                    {group.name} {isSystemDefault && <span style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 500 }}>(ค่าเริ่มต้นระบบ)</span>}
+                                  </div>
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                    {group.keywords.map((kw: string) => (
+                                      <span
+                                        key={kw}
+                                        style={{
+                                          fontSize: '0.7rem',
+                                          padding: '2px 6px',
+                                          backgroundColor: darkMode ? '#334155' : '#E2E8F0',
+                                          color: darkMode ? '#94A3B8' : '#475569',
+                                          borderRadius: '4px'
+                                        }}
+                                      >
+                                        {kw}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                                
+                                {!isSystemDefault && (
+                                  <button
+                                    type="button"
+                                    onClick={() => group.id && handleDeleteKeywordGroup(group.id)}
+                                    style={{
+                                      background: 'none',
+                                      border: 'none',
+                                      fontSize: '1.1rem',
+                                      cursor: 'pointer',
+                                      padding: '6px',
+                                      borderRadius: '6px',
+                                      color: '#EF4444',
+                                      transition: 'background-color 0.2s'
+                                    }}
+                                    title="ลบกลุ่มคำสำคัญนี้"
+                                  >
+                                    🗑️
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                      <div className="bdreport-group-actions">
+
+                      {/* Create new group form */}
+                      <form onSubmit={handleSaveKeywordGroup} style={{ borderTop: `1px solid ${darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`, paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <h4 style={{ margin: '0', fontSize: '0.95rem', fontWeight: 700, color: darkMode ? '#F8FAFC' : '#1E293B' }}>
+                          ➕ สร้างกลุ่มคำสำคัญใหม่
+                        </h4>
+                        
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <label style={{ fontSize: '0.8rem', fontWeight: 600, color: darkMode ? '#94A3B8' : '#475569' }}>ชื่อกลุ่มงาน:</label>
+                          <input
+                            type="text"
+                            placeholder="เช่น งานก่อสร้าง, งานระบบไฟฟ้า..."
+                            value={newKeywordGroupName}
+                            onChange={(e) => setNewKeywordGroupName(e.target.value)}
+                            style={{
+                              width: '100%',
+                              padding: '8px 12px',
+                              borderRadius: '6px',
+                              backgroundColor: darkMode ? '#0F172A' : '#F1F5F9',
+                              border: `1px solid ${darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`,
+                              color: darkMode ? '#F8FAFC' : '#0F172A',
+                              fontSize: '0.88rem',
+                              outline: 'none',
+                              boxSizing: 'border-box'
+                            }}
+                          />
+                        </div>
+                        
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <label style={{ fontSize: '0.8rem', fontWeight: 600, color: darkMode ? '#94A3B8' : '#475569' }}>คำสำคัญสำหรับค้นหา (เพิ่มทีละคำ):</label>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <input
+                              type="text"
+                              placeholder="คำสำหรับค้นหา (เช่น ก่อสร้าง, อิฐ, ปูน)"
+                              value={currentNewKeywordInput}
+                              onChange={(e) => setCurrentNewKeywordInput(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  handleAddNewKeywordWord();
+                                }
+                              }}
+                              style={{
+                                flex: 1,
+                                padding: '8px 12px',
+                                borderRadius: '6px',
+                                backgroundColor: darkMode ? '#0F172A' : '#F1F5F9',
+                                border: `1px solid ${darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`,
+                                color: darkMode ? '#F8FAFC' : '#0F172A',
+                                fontSize: '0.88rem',
+                                outline: 'none',
+                                boxSizing: 'border-box'
+                              }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleAddNewKeywordWord()}
+                              style={{
+                                padding: '8px 16px',
+                                borderRadius: '6px',
+                                backgroundColor: darkMode ? '#334155' : '#E2E8F0',
+                                color: darkMode ? '#E2E8F0' : '#1E293B',
+                                border: 'none',
+                                fontWeight: 700,
+                                fontSize: '0.85rem',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              เพิ่มคำ
+                            </button>
+                          </div>
+                          
+                          {/* Display added keywords in new group */}
+                          {newKeywordList.length > 0 && (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px', padding: '10px', backgroundColor: darkMode ? 'rgba(0,0,0,0.15)' : 'rgba(0,0,0,0.03)', borderRadius: '8px' }}>
+                              {newKeywordList.map((word) => (
+                                <span
+                                  key={word}
+                                  onClick={() => handleRemoveNewKeywordWord(word)}
+                                  style={{
+                                    fontSize: '0.78rem',
+                                    padding: '4px 10px',
+                                    backgroundColor: 'rgba(99, 102, 241, 0.12)',
+                                    color: darkMode ? '#A5B4FC' : '#4F46E5',
+                                    border: '1px solid rgba(99, 102, 241, 0.25)',
+                                    borderRadius: '20px',
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
+                                  }}
+                                  title="คลิกเพื่อลบคำนี้"
+                                >
+                                  {word} &times;
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
                         <button
-                          onClick={() => toggleGroupVisibility(g.groupId, g.isHidden)}
-                          className={`bdreport-btn-toggle-visibility ${g.isHidden ? 'bdreport-btn-toggle-visibility-show' : 'bdreport-btn-toggle-visibility-hide'}`}
+                          type="submit"
+                          className="bdreport-btn bdreport-btn-download"
+                          style={{ width: '100%', height: '40px', fontSize: '0.9rem', marginTop: '6px', border: 'none' }}
                         >
-                          {g.isHidden ? '👁️ แสดงกลุ่ม' : '🚫 ซ่อนกลุ่ม'}
+                          💾 บันทึกกลุ่มคำสำคัญใหม่
                         </button>
-                      </div>
+                      </form>
                     </div>
-                  ))}
-                </div>
+                  )}
+                </>
               )}
             </div>
+            
             {isAdminAuthenticated && (
               <div className="bdreport-modal-footer">
                 <button onClick={() => setShowGroupManager(false)} className="bdreport-modal-btn-close">
