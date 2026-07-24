@@ -59,6 +59,7 @@ export default function Dashboard() {
   // Theme State
   const [darkMode, setDarkMode] = useState<boolean>(true);
   const [toggleHovered, setToggleHovered] = useState<boolean>(false);
+  const [adminToggleHovered, setAdminToggleHovered] = useState<boolean>(false);
 
   // Filtering & Panel States
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>(DEFAULT_KEYWORDS);
@@ -814,6 +815,22 @@ export default function Dashboard() {
           to { transform: translateY(0); opacity: 1; }
         }
       `}</style>
+      {/* Admin Settings Button */}
+      <button 
+        onClick={() => setShowGroupManager(true)} 
+        onMouseEnter={() => setAdminToggleHovered(true)}
+        onMouseLeave={() => setAdminToggleHovered(false)}
+        style={{
+          ...styles.themeToggleBtn,
+          right: '52px',
+          opacity: adminToggleHovered ? 0.9 : 0.4,
+          fontSize: '1.05rem',
+        }}
+        title="จัดการกลุ่มแชท (ผู้ดูแลระบบ)"
+      >
+        ⚙️
+      </button>
+
       {/* Light / Dark Mode Toggle button */}
       <button 
         onClick={() => setDarkMode(!darkMode)} 
@@ -967,12 +984,7 @@ export default function Dashboard() {
             >
               📦 Backup photo
             </button>
-            <button
-              onClick={() => setShowGroupManager(true)}
-              className="bdreport-btn bdreport-btn-manage-groups"
-            >
-              👥 จัดการกลุ่มแชท
-            </button>
+
             <button
               onClick={handleDownload}
               disabled={selectedIndices.size === 0}
