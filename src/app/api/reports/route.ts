@@ -223,8 +223,8 @@ export async function GET(req: NextRequest) {
     if (groupIds.length > 0) {
       await Promise.all(
         groupIds.map(async (gid) => {
-          if (gid.startsWith('private_')) {
-            const uid = gid.substring(8);
+          if (gid.startsWith('private_') || gid === 'private') {
+            const uid = gid.startsWith('private_') ? gid.substring(8) : 'unknown';
             const uName = userNamesMap[uid] || `ผู้ใช้ LINE (${uid.substring(0, 6)})`;
             groupNamesMap[gid] = `แชทส่วนตัว - ${uName}`;
             return;
@@ -232,7 +232,7 @@ export async function GET(req: NextRequest) {
           try {
             const groupDoc = await db.collection('line_groups').doc(gid).get();
             const groupData = groupDoc.data();
-            if (groupDoc.exists && groupData) {
+            if (groupDoc.exists && groupData && groupData.groupName) {
               groupNamesMap[gid] = groupData.groupName;
             } else {
               let groupName = `กลุ่ม LINE (${gid.substring(0, 6)})`;
@@ -240,10 +240,14 @@ export async function GET(req: NextRequest) {
                 const fetchedGroupName = await getLineGroupName(gid, accessToken);
                 if (fetchedGroupName) {
                   groupName = fetchedGroupName;
-                  await db.collection('line_groups').doc(gid).set({ groupName });
                 }
               }
               groupNamesMap[gid] = groupName;
+              await db.collection('line_groups').doc(gid).set({ 
+                groupName, 
+                isHidden: false,
+                disableWeeklyPush: false 
+              }, { merge: true });
             }
           } catch (err) {
             console.error(`Error fetching group name for ${gid}:`, err);
@@ -438,21 +442,6 @@ export async function GET(req: NextRequest) {
     const mainGroupId = activeGroups.length > 0 ? activeGroups[0].groupId : 'EGAT_IOT';
     const mainGroupName = activeGroups.length > 0 ? activeGroups[0].groupName : 'EGAT IOT';
 
-    // Map reports to their correct groups
-    reportsList.forEach((rep) => {
-      // If the report's groupId is a private chat, consolidate it to the main group
-      if (!rep.groupId || rep.groupId === 'private' || rep.groupId.startsWith('private_')) {
-        rep.groupId = mainGroupId;
-        rep.groupName = mainGroupName;
-      } else {
-        // Find the group name from our activeGroups list
-        const matchingGroup = activeGroups.find(g => g.groupId === rep.groupId);
-        if (matchingGroup) {
-          rep.groupName = matchingGroup.groupName;
-        }
-      }
-    });
-
     // Fetch all active LINE groups from database so the selector shows all available groups
     const allGroupsSnapshot = await db.collection('line_groups').get();
     const dbGroupsMap = new Map<string, string>();
@@ -462,16 +451,29 @@ export async function GET(req: NextRequest) {
       }
     });
 
-    const reportGroupIds = reportsList.map(r => r.groupId).filter(Boolean);
+    // Map reports to their correct groups
+    reportsList.forEach((rep) => {
+      // If the report's groupId is a private chat, consolidate it to the main group
+      if (!rep.groupId || rep.groupId === 'private' || rep.groupId.startsWith('private_')) {
+        rep.groupId = mainGroupId;
+        rep.groupName = mainGroupName;
+      } else {
+        const name = groupNamesMap[rep.groupId] || dbGroupsMap.get(rep.groupId);
+        if (name) {
+          rep.groupName = name;
+        }
+      }
+    });
+
+    const reportGroupIds = reportsList.map(r => r.groupId).filter(gid => gid && !gid.startsWith('private_') && gid !== 'private');
     const combinedGroupIds = Array.from(new Set([...Array.from(dbGroupsMap.keys()), ...reportGroupIds]));
 
     const groupsList = combinedGroupIds
-      .filter(gid => !gid.startsWith('private_'))
+      .filter(gid => !gid.startsWith('private_') && gid !== 'private')
       .map(gid => {
-        const gInfo = activeGroups.find(g => g.groupId === gid);
         return {
           groupId: gid,
-          groupName: dbGroupsMap.get(gid) || (gInfo ? gInfo.groupName : (gid === mainGroupId ? mainGroupName : `กลุ่ม LINE (${gid.substring(0, 6)})`))
+          groupName: dbGroupsMap.get(gid) || groupNamesMap[gid] || `กลุ่ม LINE (${gid.substring(0, 6)})`
         };
       });
 
