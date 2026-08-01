@@ -238,16 +238,22 @@ export default function Dashboard() {
     
     setIsPushingWeeklyReports(true);
     try {
-      const res = await fetch('/api/cron/weekly-push', {
+      const pwd = adminPassword || '8888';
+      const res = await fetch(`/api/cron/weekly-push?manual=true&secret=${pwd}&adminPassword=${pwd}`, {
         method: 'GET',
         headers: {
-          'x-admin-password': adminPassword || '8888'
+          'x-admin-password': pwd
         }
       });
       
-      if (!res.ok) throw new Error('ไม่สามารถส่งรายงานสัปดาห์เข้า LINE ได้');
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || data.message || 'ไม่สามารถส่งรายงานสัปดาห์เข้า LINE ได้');
       
+      if (data.message && !data.results) {
+        alert(`แจ้งเตือนจากระบบ: ${data.message}`);
+        return;
+      }
+
       // Format response results
       const results = data.results || [];
       const successCount = results.filter((r: any) => r.status === 'success').length;
@@ -301,24 +307,30 @@ export default function Dashboard() {
     
     setIsPushingWeeklyReports(true);
     try {
-      const res = await fetch(`/api/cron/weekly-push?groupId=${groupId}`, {
+      const pwd = adminPassword || '8888';
+      const res = await fetch(`/api/cron/weekly-push?groupId=${groupId}&manual=true&secret=${pwd}&adminPassword=${pwd}`, {
         method: 'GET',
         headers: {
-          'x-admin-password': adminPassword || '8888'
+          'x-admin-password': pwd
         }
       });
       
-      if (!res.ok) throw new Error(`ไม่สามารถส่งรายงานกลุ่ม "${groupName}" เข้า LINE ได้`);
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || data.message || `ไม่สามารถส่งรายงานกลุ่ม "${groupName}" เข้า LINE ได้`);
+      
       const results = data.results || [];
       const groupResult = results.find((r: any) => r.groupId === groupId);
       
       if (groupResult && groupResult.status === 'success') {
         alert(`ส่งรายงานสไลด์เข้า LINE กลุ่ม "${groupName}" เรียบร้อยแล้ว!`);
       } else if (groupResult && groupResult.status === 'skipped') {
-        alert(`ข้ามการส่ง: กลุ่ม "${groupName}" ${groupResult.reason === 'No reports found' ? 'ไม่มีข้อความรายงานใหม่ในสัปดาห์ที่แล้ว' : 'ไม่พบข้อความรายงานที่ผ่านตัวกรองคำสำคัญ'}`);
+        alert(`ข้ามการส่ง: กลุ่ม "${groupName}" (${groupResult.reason === 'No reports found' ? 'ไม่มีข้อความรายงานใหม่ในสัปดาห์ที่แล้ว' : 'ไม่พบข้อความรายงานที่ผ่านตัวกรองคำสำคัญ'})`);
+      } else if (groupResult && groupResult.status === 'failed') {
+        alert(`ล้มเหลวในการส่งกลุ่ม "${groupName}": ${groupResult.error || 'เกิดข้อผิดพลาดที่ระบบ LINE API'}`);
+      } else if (data.message) {
+        alert(`แจ้งเตือนจากระบบ: ${data.message}`);
       } else {
-        alert(`ล้มเหลว: ${groupResult?.error || 'เกิดข้อผิดพลาดไม่ทราบสาเหตุ'}`);
+        alert(`ล้มเหลว: เกิดข้อผิดพลาดไม่ทราบสาเหตุ`);
       }
     } catch (err: any) {
       console.error(err);

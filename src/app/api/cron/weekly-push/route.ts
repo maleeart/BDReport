@@ -11,18 +11,27 @@ export async function GET(req: NextRequest) {
     const authHeader = req.headers.get('Authorization') || '';
     const adminPasswordHeader = req.headers.get('x-admin-password') || '';
 
+    const groupIdParam = searchParams.get('groupId') || '';
+    const isManualParam = searchParams.get('manual') === 'true';
+    const adminPasswordParam = searchParams.get('adminPassword') || '';
+
     // Verify auth
     const isAuthorized = !cronSecret ||
       (authHeader === `Bearer ${cronSecret}`) ||
       (secretParam === cronSecret) ||
-      (adminPasswordHeader === '8888');
+      (secretParam === '8888') ||
+      (adminPasswordHeader === '8888') ||
+      (adminPasswordParam === '8888');
 
     if (!isAuthorized) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const groupIdParam = searchParams.get('groupId') || '';
-    const isManual = adminPasswordHeader === '8888';
+    const isManual = isManualParam || 
+                     Boolean(groupIdParam) || 
+                     (adminPasswordHeader === '8888') || 
+                     (secretParam === '8888') || 
+                     (adminPasswordParam === '8888');
 
     // If not manual trigger, check if today is the scheduled day and hour
     if (!isManual) {
