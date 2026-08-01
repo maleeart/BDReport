@@ -442,15 +442,6 @@ export async function GET(req: NextRequest) {
     const mainGroupId = activeGroups.length > 0 ? activeGroups[0].groupId : 'EGAT_IOT';
     const mainGroupName = activeGroups.length > 0 ? activeGroups[0].groupName : 'EGAT IOT';
 
-    // Fetch all active LINE groups from database so the selector shows all available groups
-    const allGroupsSnapshot = await db.collection('line_groups').get();
-    const dbGroupsMap = new Map<string, string>();
-    allGroupsSnapshot.docs.forEach(doc => {
-      if (!doc.data()?.isHidden) {
-        dbGroupsMap.set(doc.id, doc.data()?.groupName || `กลุ่ม LINE (${doc.id.substring(0, 6)})`);
-      }
-    });
-
     // Map reports to their correct groups
     reportsList.forEach((rep) => {
       // If the report's groupId is a private chat, consolidate it to the main group
@@ -458,24 +449,23 @@ export async function GET(req: NextRequest) {
         rep.groupId = mainGroupId;
         rep.groupName = mainGroupName;
       } else {
-        const name = groupNamesMap[rep.groupId] || dbGroupsMap.get(rep.groupId);
-        if (name) {
-          rep.groupName = name;
+        // Find the group name from our activeGroups list
+        const matchingGroup = activeGroups.find(g => g.groupId === rep.groupId);
+        if (matchingGroup) {
+          rep.groupName = matchingGroup.groupName;
         }
       }
     });
 
-    const reportGroupIds = reportsList.map(r => r.groupId).filter(gid => gid && !gid.startsWith('private_') && gid !== 'private');
-    const combinedGroupIds = Array.from(new Set([...Array.from(dbGroupsMap.keys()), ...reportGroupIds]));
-
-    const groupsList = combinedGroupIds
-      .filter(gid => !gid.startsWith('private_') && gid !== 'private')
-      .map(gid => {
-        return {
-          groupId: gid,
-          groupName: dbGroupsMap.get(gid) || groupNamesMap[gid] || `กลุ่ม LINE (${gid.substring(0, 6)})`
-        };
-      });
+    // Make the groups list dynamically contain all unique groups present in the reports
+    const uniqueGroupIds = Array.from(new Set(reportsList.map(r => r.groupId)));
+    const groupsList = uniqueGroupIds.map(gid => {
+      const gInfo = activeGroups.find(g => g.groupId === gid);
+      return {
+        groupId: gid,
+        groupName: gInfo ? gInfo.groupName : (gid === mainGroupId ? mainGroupName : `กลุ่ม LINE (${gid.substring(0, 6)})`)
+      };
+    });
 
     return NextResponse.json({
       date: thaiWeekRange,
