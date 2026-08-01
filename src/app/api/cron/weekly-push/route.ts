@@ -100,7 +100,7 @@ export async function GET(req: NextRequest) {
     }
 
     const host = req.headers.get('host') || 'localhost:3000';
-    const protocol = req.url.startsWith('https') ? 'https' : 'http';
+    const protocol = 'https';
 
     // Query all reports for target week once
     let reportsSnapshot = await db.collection('line_reports')
@@ -332,9 +332,9 @@ export async function GET(req: NextRequest) {
 
       if (!pushRes.ok) {
         const errorText = await pushRes.text();
-        results.push({ groupId: group.groupId, groupName: group.groupName, status: 'failed', error: errorText });
+        results.push({ groupId: group.groupId, targetLineId, groupName: group.groupName, status: 'failed', error: errorText });
       } else {
-        results.push({ groupId: group.groupId, groupName: group.groupName, status: 'success' });
+        results.push({ groupId: group.groupId, targetLineId, groupName: group.groupName, status: 'success' });
       }
     }
 

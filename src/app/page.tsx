@@ -324,9 +324,9 @@ export default function Dashboard() {
       const groupResult = results.find((r: any) => r.groupId === groupId);
       
       if (groupResult && groupResult.status === 'success') {
-        alert(`ส่งรายงานสไลด์เข้า LINE กลุ่ม "${groupName}" เรียบร้อยแล้ว!`);
+        alert(`ส่งรายงานสไลด์เข้า LINE กลุ่ม "${groupName}" (ID: ${groupResult.targetLineId || groupId}) เรียบร้อยแล้ว!`);
       } else if (groupResult && groupResult.status === 'skipped') {
-        alert(`ข้ามการส่ง: กลุ่ม "${groupName}" (${groupResult.reason === 'No reports found' ? 'ไม่มีข้อความรายงานใหม่ในสัปดาห์ที่แล้ว' : 'ไม่พบข้อความรายงานที่ผ่านตัวกรองคำสำคัญ'})`);
+        alert(`ข้ามการส่ง: กลุ่ม "${groupName}" (${groupResult.reason === 'No reports found' ? 'ไม่มีข้อความรายงานในสัปดาห์นี้/สัปดาห์ก่อน' : 'ไม่พบข้อความรายงานที่ผ่านตัวกรองคำสำคัญ'})`);
       } else if (groupResult && groupResult.status === 'failed') {
         alert(`ล้มเหลวในการส่งกลุ่ม "${groupName}": ${groupResult.error || 'เกิดข้อผิดพลาดที่ระบบ LINE API'}`);
       } else if (data.message) {
