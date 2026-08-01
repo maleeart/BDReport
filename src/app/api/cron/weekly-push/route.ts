@@ -125,6 +125,15 @@ export async function GET(req: NextRequest) {
     const kwSnapshot = await db.collection('keyword_groups').get();
     const allKwDocs = !kwSnapshot.empty ? kwSnapshot.docs.map(d => d.data()) : [];
 
+    const sortedGroups = groupsSnapshot.docs
+      .filter(doc => !doc.data()?.isHidden)
+      .map(doc => ({
+        groupId: doc.id,
+        groupName: doc.data()?.groupName || 'กลุ่ม LINE'
+      }))
+      .filter(g => g.groupId && !g.groupId.startsWith('private_'));
+    const mainGroupId = sortedGroups.length > 0 ? sortedGroups[0].groupId : 'EGAT_IOT';
+
     // Loop through each active group
     for (const group of activeGroups) {
       let activeKeywords: string[] = [];
@@ -140,13 +149,13 @@ export async function GET(req: NextRequest) {
         activeKeywords = ['งาน', 'ใบงาน', 'ซ่อม', 'ใบแจ้งซ่อม', 'เลขที่', 'เปลี่ยน', 'ตรวจ', 'สำรวจ', 'test', 'ทดสอบ', 'ท.', 'ต.', 'ล้าง', 'PM', 'ประจำ', 'เดือน', 'สัปดาห์', 'อาทิตย์'];
       }
 
-      // Filter reports strictly for this group, with intelligent fallback
+      // Filter reports strictly for this group
       let reports = allReports.filter(r => r.groupId === group.groupId);
-      if (reports.length === 0) {
+      
+      const isMainGroup = group.groupId === mainGroupId || group.groupId === 'private';
+      if (reports.length === 0 && isMainGroup) {
+        // Fallback to only private/unassigned reports for the main group, NEVER include other groups
         reports = allReports.filter(r => !r.groupId || r.groupId === 'private' || r.groupId.startsWith('private_'));
-      }
-      if (reports.length === 0) {
-        reports = allReports; // Fallback to all reports if no specific group filter matched
       }
 
       if (reports.length === 0) {

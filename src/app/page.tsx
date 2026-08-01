@@ -504,7 +504,16 @@ export default function Dashboard() {
         setTimeout(() => {
           const targetGroupId = groupIdParam;
           const filtered = fetchedReports.filter((report: any) => {
-            if (targetGroupId !== 'all' && report.groupId !== targetGroupId) return false;
+            const mainGroupId = fetchedGroups.length > 0 ? fetchedGroups[0].groupId : 'EGAT_IOT';
+            const isMainGroup = targetGroupId === mainGroupId || targetGroupId === 'private';
+            let isGroupMatch = false;
+            if (report.groupId === targetGroupId) isGroupMatch = true;
+            else if (isMainGroup && (!report.groupId || report.groupId === 'private' || report.groupId.startsWith('private_'))) {
+              isGroupMatch = true;
+            }
+            
+            if (!isGroupMatch) return false;
+
             const summary: string[] = report.summary || [];
             return summary.some((line: string) => 
               line !== 'ส่งเฉพาะรูปภาพประกอบ' && 
@@ -553,7 +562,15 @@ export default function Dashboard() {
 
     // Filter by selected LINE group first
     if (selectedGroupId !== 'all') {
-      filtered = filtered.filter(report => report.groupId === selectedGroupId);
+      const mainGroupId = groups.length > 0 ? groups[0].groupId : 'EGAT_IOT';
+      const isMainGroup = selectedGroupId === mainGroupId || selectedGroupId === 'private';
+      filtered = filtered.filter(report => {
+        if (report.groupId === selectedGroupId) return true;
+        if (isMainGroup && (!report.groupId || report.groupId === 'private' || report.groupId.startsWith('private_'))) {
+          return true;
+        }
+        return false;
+      });
     }
 
     const activeKeywords = [...selectedKeywords];

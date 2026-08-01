@@ -123,11 +123,16 @@ class handler(BaseHTTPRequestHandler):
                     reports = [reports[i] for i in selected_indices if i < len(reports)]
                 except Exception as filter_err:
                     print(f"Error filtering reports by indices: {filter_err}")
-            # Otherwise, if a specific groupId is requested, filter reports for that group (with fallback if empty)
+            # Otherwise, if a specific groupId is requested, filter reports strictly for that group
             elif group_id_param and group_id_param != 'all':
-                matching_reports = [r for r in reports if r.get('groupId') == group_id_param]
-                if matching_reports:
-                    reports = matching_reports
+                is_main_group = group_id_param == 'EGAT_IOT' or 'อาคาร' in group_id_param or group_id_param == 'private'
+                
+                if is_main_group:
+                    # Match EGAT_IOT/main group reports or private/unassigned reports
+                    reports = [r for r in reports if r.get('groupId') == group_id_param or not r.get('groupId') or r.get('groupId') == 'private' or r.get('groupId', '').startswith('private_')]
+                else:
+                    # Match strictly by groupId
+                    reports = [r for r in reports if r.get('groupId') == group_id_param]
 
             if not reports:
                 self.send_response(200)

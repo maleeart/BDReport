@@ -37,10 +37,10 @@ export async function GET(req: NextRequest) {
           let filteredReports = allReports;
           if (groupIdParam && groupIdParam !== 'all') {
             const mainGroupId = allReports.length > 0 ? (allReports.find(r => r.groupId && r.groupId !== 'private' && !r.groupId.startsWith('private_'))?.groupId || 'EGAT_IOT') : 'EGAT_IOT';
+            const isMainGroup = groupIdParam === mainGroupId || groupIdParam === 'private';
             filteredReports = filteredReports.filter(r => {
               if (r.groupId === groupIdParam) return true;
-              if ((groupIdParam === mainGroupId || groupIdParam === 'EGAT_IOT' || groupIdParam.includes('อาคาร')) &&
-                  (!r.groupId || r.groupId === 'private' || r.groupId.startsWith('private_'))) {
+              if (isMainGroup && (!r.groupId || r.groupId === 'private' || r.groupId.startsWith('private_'))) {
                 return true;
               }
               return false;
