@@ -211,8 +211,7 @@ export async function GET(req: NextRequest) {
                 text: "📊 WEEKLY REPORT",
                 color: "#FFFFFF",
                 weight: "bold",
-                size: "lg",
-                letterSpacing: "0.05em"
+                size: "lg"
               },
               {
                 type: "text",
