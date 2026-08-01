@@ -140,11 +140,34 @@ export async function GET(req: NextRequest) {
         activeKeywords = ['งาน', 'ใบงาน', 'ซ่อม', 'ใบแจ้งซ่อม', 'เลขที่', 'เปลี่ยน', 'ตรวจ', 'สำรวจ', 'test', 'ทดสอบ', 'ท.', 'ต.', 'ล้าง', 'PM', 'ประจำ', 'เดือน', 'สัปดาห์', 'อาทิตย์'];
       }
 
-      // Filter reports for this group in memory
-      const reports = allReports.filter(r => r.groupId === group.groupId);
+      // Filter reports for this group in memory (including private chats if group matches)
+      const reports = allReports.filter(r => {
+        if (r.groupId === group.groupId) return true;
+        if (!r.groupId || r.groupId === 'private' || r.groupId.startsWith('private_')) return true;
+        return false;
+      });
 
       if (reports.length === 0) {
         results.push({ groupId: group.groupId, groupName: group.groupName, status: 'skipped', reason: 'No reports found' });
+        continue;
+      }
+
+      // Resolve valid LINE recipient ID (Group ID C..., Room ID R..., or User ID U...)
+      let targetLineId = group.groupId;
+      if (!targetLineId.startsWith('C') && !targetLineId.startsWith('R') && !targetLineId.startsWith('U')) {
+        const realGroupReport = reports.find(r => r.groupId && (r.groupId.startsWith('C') || r.groupId.startsWith('R')));
+        if (realGroupReport) {
+          targetLineId = realGroupReport.groupId;
+        } else {
+          const realUserReport = reports.find(r => r.userId && r.userId.startsWith('U'));
+          if (realUserReport) {
+            targetLineId = realUserReport.userId;
+          }
+        }
+      }
+
+      if (!targetLineId.startsWith('C') && !targetLineId.startsWith('R') && !targetLineId.startsWith('U')) {
+        results.push({ groupId: group.groupId, groupName: group.groupName, status: 'failed', error: 'ไม่พบ ID กลุ่ม LINE หรือ User ID ที่ระบบสามารถส่งข้อความหาได้' });
         continue;
       }
 
@@ -169,7 +192,7 @@ export async function GET(req: NextRequest) {
       const weekNum = weekParts[1];
       const displayWeekRange = formatThaiWeekRange(range.start, range.end);
       
-      const downloadUrl = `${protocol}://${host}/api/download?week=${targetWeekStr}&groupId=${group.groupId}`;
+      const downloadUrl = `${protocol}://${host}/api/download?week=${targetWeekStr}&groupId=${targetLineId}`;
 
       const flexMessage = {
         type: 'flex',
@@ -302,7 +325,7 @@ export async function GET(req: NextRequest) {
           'Authorization': `Bearer ${accessToken}`
         },
         body: JSON.stringify({
-          to: group.groupId,
+          to: targetLineId,
           messages: [flexMessage]
         })
       });
