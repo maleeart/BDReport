@@ -242,54 +242,6 @@ export async function GET(req: NextRequest) {
                 size: "sm",
                 color: "#64748B",
                 margin: "sm"
-              },
-              {
-                type: "box",
-                layout: "vertical",
-                margin: "lg",
-                spacing: "sm",
-                contents: [
-                  {
-                    type: "box",
-                    layout: "baseline",
-                    spacing: "sm",
-                    contents: [
-                      {
-                        type: "text",
-                        text: "•",
-                        color: "#3B82F6",
-                        flex: 0
-                      },
-                      {
-                        type: "text",
-                        text: "คัดกรองเฉพาะหัวข้อรายงานสำคัญแล้ว",
-                        size: "sm",
-                        color: "#475569",
-                        flex: 1
-                      }
-                    ]
-                  },
-                  {
-                    type: "box",
-                    layout: "baseline",
-                    spacing: "sm",
-                    contents: [
-                      {
-                        type: "text",
-                        text: "•",
-                        color: "#3B82F6",
-                        flex: 0
-                      },
-                      {
-                        type: "text",
-                        text: "สามารถดาวน์โหลดเป็นไฟล์สไลด์เพื่อใช้เสนอต่อได้",
-                        size: "sm",
-                        color: "#475569",
-                        flex: 1
-                      }
-                    ]
-                  }
-                ]
               }
             ]
           },
