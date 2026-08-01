@@ -14,10 +14,58 @@ export async function GET(req: NextRequest) {
     const protocol = req.url.startsWith('https') ? 'https' : 'http';
     const cronSecret = process.env.CRON_SECRET || '';
 
+    // If indicesParam is not provided, automatically filter by active keyword groups
+    let finalIndicesParam = indicesParam;
+    if (!indicesParam) {
+      try {
+        const reportsRes = await fetch(`${protocol}://${host}/api/reports?week=${weekParam}`);
+        if (reportsRes.ok) {
+          const reportData = await reportsRes.json();
+          const allReports: any[] = reportData.reports || [];
+          
+          // Fetch keyword groups from DB
+          const kwSnapshot = await db.collection('keyword_groups').get();
+          let activeKeywords: string[] = [];
+          if (!kwSnapshot.empty) {
+            activeKeywords = kwSnapshot.docs.flatMap(doc => doc.data().keywords || []);
+          } else {
+            // Fallback to default keywords if DB is empty
+            activeKeywords = ['งาน', 'ใบงาน', 'ซ่อม', 'ใบแจ้งซ่อม', 'เลขที่', 'เปลี่ยน', 'ตรวจ', 'สำรวจ', 'test', 'ทดสอบ', 'ท.', 'ต.', 'ล้าง', 'PM', 'ประจำ', 'เดือน', 'สัปดาห์', 'อาทิตย์'];
+          }
+
+          // Filter reports list by groupId if groupIdParam is provided and not 'all'
+          let filteredReports = allReports;
+          if (groupIdParam && groupIdParam !== 'all') {
+            filteredReports = filteredReports.filter(r => r.groupId === groupIdParam);
+          }
+
+          // Filter by active keywords
+          filteredReports = filteredReports.filter(report => {
+            const summary: string[] = report.summary || [];
+            return summary.some((line: string) => 
+              line !== 'ส่งเฉพาะรูปภาพประกอบ' && 
+              line !== 'ไม่มีข้อความประกอบ' && 
+              line !== 'ไม่มีรายงานข้อความ' &&
+              activeKeywords.some((kw: string) => line.toLowerCase().includes(kw.toLowerCase()))
+            );
+          });
+
+          // Find the indices of filteredReports in the original allReports list
+          const matchingIndices = filteredReports
+            .map(r => allReports.findIndex((orig: any) => orig.userId === r.userId && orig.sortTimestamp === r.sortTimestamp))
+            .filter(idx => idx !== -1);
+
+          finalIndicesParam = matchingIndices.join(',');
+        }
+      } catch (err) {
+        console.error('Error auto-filtering download indices:', err);
+      }
+    }
+
     // Securely invoke /api/cron/generate on the server-side by appending the secret
     let generateUrl = `${protocol}://${host}/api/cron/generate?secret=${cronSecret}&week=${weekParam}`;
-    if (indicesParam) {
-      generateUrl += `&indices=${indicesParam}`;
+    if (finalIndicesParam !== undefined && finalIndicesParam !== '') {
+      generateUrl += `&indices=${finalIndicesParam}`;
     }
 
     const generateRes = await fetch(generateUrl);
