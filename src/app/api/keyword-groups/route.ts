@@ -20,7 +20,8 @@ export async function GET() {
     let groups = snapshot.docs.map(doc => ({
       id: doc.id,
       name: doc.data().name,
-      keywords: doc.data().keywords || []
+      keywords: doc.data().keywords || [],
+      defaultGroupId: doc.data().defaultGroupId || ''
     }));
 
     // If empty, return the default one (and seed it to Firestore)
@@ -29,12 +30,14 @@ export async function GET() {
       const docRef = await db.collection('keyword_groups').add({
         name: defaultGroup.name,
         keywords: defaultGroup.keywords,
+        defaultGroupId: '',
         createdAt: new Date()
       });
       groups = [{
         id: docRef.id,
         name: defaultGroup.name,
-        keywords: defaultGroup.keywords
+        keywords: defaultGroup.keywords,
+        defaultGroupId: ''
       }];
     }
 
@@ -56,7 +59,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Database not initialized' }, { status: 500 });
     }
     const body = await req.json();
-    const { name, keywords } = body;
+    const { name, keywords, defaultGroupId } = body;
 
     if (!name || !keywords || !Array.isArray(keywords) || keywords.length === 0) {
       return NextResponse.json({ error: 'Invalid group name or keywords' }, { status: 400 });
@@ -65,6 +68,7 @@ export async function POST(req: NextRequest) {
     const docRef = await db.collection('keyword_groups').add({
       name,
       keywords,
+      defaultGroupId: defaultGroupId || '',
       createdAt: new Date()
     });
 

@@ -23,6 +23,7 @@ interface KeywordGroup {
   id?: string;
   name: string;
   keywords: string[];
+  defaultGroupId?: string;
 }
 
 interface Group {
@@ -94,6 +95,7 @@ export default function Dashboard() {
   const [newKeywordGroupName, setNewKeywordGroupName] = useState<string>('');
   const [newKeywordList, setNewKeywordList] = useState<string[]>([]);
   const [currentNewKeywordInput, setCurrentNewKeywordInput] = useState<string>('');
+  const [newKeywordDefaultGroupId, setNewKeywordDefaultGroupId] = useState<string>('');
 
   // Keyword Groups Dynamic State
   const [keywordGroups, setKeywordGroups] = useState<KeywordGroup[]>(DEFAULT_KEYWORD_GROUPS);
@@ -360,7 +362,8 @@ export default function Dashboard() {
         },
         body: JSON.stringify({
           name: cleanName,
-          keywords: newKeywordList
+          keywords: newKeywordList,
+          defaultGroupId: newKeywordDefaultGroupId
         })
       });
 
@@ -370,6 +373,7 @@ export default function Dashboard() {
       setNewKeywordGroupName('');
       setNewKeywordList([]);
       setCurrentNewKeywordInput('');
+      setNewKeywordDefaultGroupId('');
       
       // Reload keyword groups
       await fetchKeywordGroups();
@@ -413,6 +417,16 @@ export default function Dashboard() {
     const today = new Date();
     setSelectedWeek(getISOWeekString(today));
   }, []);
+
+  // Automatically select the default keywords for the selected LINE group
+  useEffect(() => {
+    if (selectedGroupId && selectedGroupId !== 'all') {
+      const matchedGroup = keywordGroups.find(g => g.defaultGroupId === selectedGroupId);
+      if (matchedGroup) {
+        setSelectedKeywords(matchedGroup.keywords);
+      }
+    }
+  }, [selectedGroupId, keywordGroups]);
 
   const fetchReports = async (weekStr: string) => {
     if (!weekStr) return;
@@ -2068,6 +2082,9 @@ export default function Dashboard() {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '180px', overflowY: 'auto', paddingRight: '4px' }}>
                           {keywordGroups.map((group) => {
                             const isSystemDefault = !group.id || group.name === 'งานบำรุงรักษา';
+                            const matchedGroupName = group.defaultGroupId 
+                              ? (allGroups.find(g => g.groupId === group.defaultGroupId)?.groupName || `กลุ่ม ID: ${group.defaultGroupId.substring(0, 6)}`)
+                              : '';
                             return (
                               <div
                                 key={group.id || group.name}
@@ -2083,7 +2100,13 @@ export default function Dashboard() {
                               >
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxWidth: '85%' }}>
                                   <div style={{ fontWeight: 700, fontSize: '0.9rem', color: darkMode ? '#E2E8F0' : '#1E293B' }}>
-                                    {group.name} {isSystemDefault && <span style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 500 }}>(ค่าเริ่มต้นระบบ)</span>}
+                                    {group.name} 
+                                    {isSystemDefault && <span style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 500 }}>(ค่าเริ่มต้นระบบ)</span>}
+                                    {matchedGroupName && (
+                                      <span style={{ fontSize: '0.72rem', color: darkMode ? '#93C5FD' : '#2563EB', backgroundColor: darkMode ? 'rgba(59,130,246,0.15)' : 'rgba(37,99,235,0.08)', padding: '2px 6px', borderRadius: '4px', marginLeft: '6px', fontWeight: 600 }}>
+                                        🔗 เริ่มต้นของ: {matchedGroupName}
+                                      </span>
+                                    )}
                                   </div>
                                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                                     {group.keywords.map((kw: string) => (
@@ -2153,6 +2176,31 @@ export default function Dashboard() {
                               boxSizing: 'border-box'
                             }}
                           />
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <label style={{ fontSize: '0.8rem', fontWeight: 600, color: darkMode ? '#94A3B8' : '#475569' }}>ตั้งค่าใช้งานเป็นค่าเริ่มต้นสำหรับกลุ่ม LINE (ทางเลือก):</label>
+                          <select
+                            value={newKeywordDefaultGroupId}
+                            onChange={(e) => setNewKeywordDefaultGroupId(e.target.value)}
+                            style={{
+                              width: '100%',
+                              padding: '8px 12px',
+                              borderRadius: '6px',
+                              backgroundColor: darkMode ? '#0F172A' : '#F1F5F9',
+                              border: `1px solid ${darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`,
+                              color: darkMode ? '#F8FAFC' : '#0F172A',
+                              fontSize: '0.88rem',
+                              outline: 'none',
+                              boxSizing: 'border-box',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <option value="">— ไม่เลือกจับคู่เริ่มต้น —</option>
+                            {allGroups.map(g => (
+                              <option key={g.groupId} value={g.groupId}>{g.groupName}</option>
+                            ))}
+                          </select>
                         </div>
                         
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
