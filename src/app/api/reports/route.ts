@@ -453,15 +453,27 @@ export async function GET(req: NextRequest) {
       }
     });
 
-    // Make the groups list dynamically contain all unique groups present in the reports
-    const uniqueGroupIds = Array.from(new Set(reportsList.map(r => r.groupId)));
-    const groupsList = uniqueGroupIds.map(gid => {
-      const gInfo = activeGroups.find(g => g.groupId === gid);
-      return {
-        groupId: gid,
-        groupName: gInfo ? gInfo.groupName : (gid === mainGroupId ? mainGroupName : `กลุ่ม LINE (${gid.substring(0, 6)})`)
-      };
+    // Fetch all active LINE groups from database so the selector shows all available groups
+    const allGroupsSnapshot = await db.collection('line_groups').get();
+    const dbGroupsMap = new Map<string, string>();
+    allGroupsSnapshot.docs.forEach(doc => {
+      if (!doc.data()?.isHidden) {
+        dbGroupsMap.set(doc.id, doc.data()?.groupName || `กลุ่ม LINE (${doc.id.substring(0, 6)})`);
+      }
     });
+
+    const reportGroupIds = reportsList.map(r => r.groupId).filter(Boolean);
+    const combinedGroupIds = Array.from(new Set([...Array.from(dbGroupsMap.keys()), ...reportGroupIds]));
+
+    const groupsList = combinedGroupIds
+      .filter(gid => !gid.startsWith('private_'))
+      .map(gid => {
+        const gInfo = activeGroups.find(g => g.groupId === gid);
+        return {
+          groupId: gid,
+          groupName: dbGroupsMap.get(gid) || (gInfo ? gInfo.groupName : (gid === mainGroupId ? mainGroupName : `กลุ่ม LINE (${gid.substring(0, 6)})`))
+        };
+      });
 
     return NextResponse.json({
       date: thaiWeekRange,

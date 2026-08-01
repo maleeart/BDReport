@@ -430,13 +430,20 @@ export default function Dashboard() {
     setSelectedWeek(getISOWeekString(today));
   }, []);
 
-  // Automatically select the default keywords for the selected LINE group
+  // Automatically select default keywords for the selected LINE group
   useEffect(() => {
+    const allKeywords = keywordGroups.flatMap(g => g.keywords);
+    const fallbackKeywords = allKeywords.length > 0 ? allKeywords : DEFAULT_KEYWORDS;
+
     if (selectedGroupId && selectedGroupId !== 'all') {
       const matchedGroup = keywordGroups.find(g => g.defaultGroupId === selectedGroupId);
-      if (matchedGroup) {
+      if (matchedGroup && matchedGroup.keywords && matchedGroup.keywords.length > 0) {
         setSelectedKeywords(matchedGroup.keywords);
+      } else {
+        setSelectedKeywords(fallbackKeywords);
       }
+    } else if (selectedGroupId === 'all') {
+      setSelectedKeywords(fallbackKeywords);
     }
   }, [selectedGroupId, keywordGroups]);
 
@@ -455,15 +462,6 @@ export default function Dashboard() {
       const fetchedGroups = data.groups || [];
       setGroups(fetchedGroups);
       setThaiWeekRange(data.date || '');
-
-      // Auto-select 'งานอาคารและบริเวณ' group as default on initial load
-      if (!hasSetDefaultGroup && fetchedGroups.length > 0) {
-        const targetGroup = fetchedGroups.find((g: any) => g.groupName && g.groupName.includes('งานอาคารและบริเวณ'));
-        if (targetGroup) {
-          setSelectedGroupId(targetGroup.groupId);
-          setHasSetDefaultGroup(true);
-        }
-      }
     } catch (err: any) {
       setError(err.message || 'เกิดข้อผิดพลาดในการโหลดข้อมูล');
       setReports([]);
