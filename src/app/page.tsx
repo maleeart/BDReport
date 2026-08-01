@@ -896,6 +896,39 @@ export default function Dashboard() {
           /* Chips */
           .bdreport-chips { gap: 6px !important; }
           .bdreport-chip { font-size: 0.8rem !important; padding: 6px 12px !important; }
+
+          /* Group Manager Modal Mobile Layout */
+          .bdreport-group-row {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 12px !important;
+            padding: 16px 12px !important;
+          }
+          .bdreport-group-info {
+            max-width: 100% !important;
+            width: 100% !important;
+          }
+          .bdreport-group-name {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 6px !important;
+          }
+          .bdreport-group-actions {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 8px !important;
+            width: 100% !important;
+          }
+          .bdreport-group-actions button {
+            width: 100% !important;
+            justify-content: center !important;
+            padding: 8px 12px !important;
+            font-size: 0.82rem !important;
+          }
+          .bdreport-modal-card {
+            max-height: 90vh !important;
+            width: 96% !important;
+          }
         }
 
         /* Unified Theme Buttons styling */

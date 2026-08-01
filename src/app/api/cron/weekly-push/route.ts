@@ -232,10 +232,17 @@ export async function GET(req: NextRequest) {
               {
                 type: "text",
                 text: group.groupName,
-                color: "#93C5FD",
+                color: "#FBBF24",
                 size: "sm",
                 weight: "bold",
                 margin: "xs"
+              },
+              {
+                type: "box",
+                layout: "vertical",
+                backgroundColor: "#FBBF24",
+                height: "3px",
+                margin: "md"
               }
             ]
           },
