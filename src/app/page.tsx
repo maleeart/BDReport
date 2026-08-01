@@ -88,6 +88,7 @@ export default function Dashboard() {
 
   // Admin Dashboard Keyword States
   const [adminTab, setAdminTab] = useState<'groups' | 'keywords'>('groups');
+  const [isPushingWeeklyReports, setIsPushingWeeklyReports] = useState<boolean>(false);
   const [newKeywordGroupName, setNewKeywordGroupName] = useState<string>('');
   const [newKeywordList, setNewKeywordList] = useState<string[]>([]);
   const [currentNewKeywordInput, setCurrentNewKeywordInput] = useState<string>('');
@@ -199,6 +200,62 @@ export default function Dashboard() {
     } catch (err: any) {
       console.error(err);
       alert(err.message || 'เกิดข้อผิดพลาดในการเปลี่ยนสถานะกลุ่ม');
+    }
+  };
+
+  const toggleWeeklyPush = async (groupId: string, currentDisabled: boolean) => {
+    try {
+      const res = await fetch('/api/groups', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-password': adminPassword || '8888'
+        },
+        body: JSON.stringify({
+          groupId,
+          disableWeeklyPush: !currentDisabled,
+        }),
+      });
+
+      if (!res.ok) throw new Error('ไม่สามารถอัปเดตสถานะการส่งรายสัปดาห์ได้');
+      
+      // Update local state for allGroups
+      setAllGroups(prev =>
+        prev.map(g => g.groupId === groupId ? { ...g, disableWeeklyPush: !currentDisabled } : g)
+      );
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || 'เกิดข้อผิดพลาดในการเปลี่ยนสถานะการส่งรายสัปดาห์');
+    }
+  };
+
+  const handleManualWeeklyPush = async () => {
+    if (!window.confirm('คุณแน่ใจหรือไม่ว่าต้องการจัดทำและส่งรายงานสไลด์ PPTX ประจำสัปดาห์ของทุกกลุ่มเข้าห้องแชท LINE ในทันที?')) return;
+    
+    setIsPushingWeeklyReports(true);
+    try {
+      const res = await fetch('/api/cron/weekly-push', {
+        method: 'GET',
+        headers: {
+          'x-admin-password': adminPassword || '8888'
+        }
+      });
+      
+      if (!res.ok) throw new Error('ไม่สามารถส่งรายงานสัปดาห์เข้า LINE ได้');
+      const data = await res.json();
+      
+      // Format response results
+      const results = data.results || [];
+      const successCount = results.filter((r: any) => r.status === 'success').length;
+      const skippedCount = results.filter((r: any) => r.status === 'skipped').length;
+      const failedCount = results.filter((r: any) => r.status === 'failed').length;
+      
+      alert(`การส่งข้อความสรุปรายงานสัปดาห์สำเร็จเรียบร้อยแล้ว!\n\nส่งสำเร็จ: ${successCount} กลุ่ม\nข้ามการส่ง (ไม่มีข้อมูล): ${skippedCount} กลุ่ม\nล้มเหลว: ${failedCount} กลุ่ม`);
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || 'เกิดข้อผิดพลาดขณะส่งรายงานเข้า LINE');
+    } finally {
+      setIsPushingWeeklyReports(false);
     }
   };
 
@@ -1747,6 +1804,48 @@ export default function Dashboard() {
                   {/* Tab 1: Group Visibility */}
                   {adminTab === 'groups' && (
                     <>
+                      {/* Manual trigger section */}
+                      <div style={{ 
+                        display: 'flex', 
+                        flexDirection: 'column',
+                        gap: '8px', 
+                        padding: '12px', 
+                        backgroundColor: darkMode ? 'rgba(59, 130, 246, 0.08)' : 'rgba(30, 58, 138, 0.04)',
+                        border: `1.5px dashed ${darkMode ? 'rgba(59, 130, 246, 0.3)' : 'rgba(30, 58, 138, 0.2)'}`,
+                        borderRadius: '8px',
+                        marginBottom: '16px'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
+                          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: darkMode ? '#93C5FD' : '#1E3A8A' }}>
+                            🚀 ตัวช่วยส่งรายงานแมนนวล:
+                          </span>
+                          <span style={{ fontSize: '0.72rem', color: darkMode ? '#94A3B8' : '#64748B' }}>
+                            (ส่งสไลด์สรุปสัปดาห์ที่แล้ว เข้า LINE ของแต่ละกลุ่มทันที)
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={isPushingWeeklyReports}
+                          onClick={handleManualWeeklyPush}
+                          className="bdreport-btn"
+                          style={{
+                            height: '38px',
+                            fontSize: '0.88rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            background: isPushingWeeklyReports ? '#64748B' : 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+                            border: 'none',
+                            color: '#FFFFFF',
+                            cursor: isPushingWeeklyReports ? 'not-allowed' : 'pointer',
+                            opacity: isPushingWeeklyReports ? 0.7 : 1
+                          }}
+                        >
+                          {isPushingWeeklyReports ? '⏳ กำลังส่งรายงานสไลด์เข้า LINE...' : '✉️ ส่งรายงานสไลด์เข้าห้องแชท LINE ของทุกกลุ่มทันที'}
+                        </button>
+                      </div>
+
                       {loadingAllGroups ? (
                         <div className="bdreport-modal-loading">กำลังโหลดรายชื่อกลุ่มแชท...</div>
                       ) : allGroups.length === 0 ? (
@@ -1754,22 +1853,45 @@ export default function Dashboard() {
                       ) : (
                         <div className="bdreport-groups-list">
                           {allGroups.map((g) => (
-                            <div key={g.groupId} className="bdreport-group-row">
+                            <div key={g.groupId} className="bdreport-group-row" style={{ padding: '14px 12px' }}>
                               <div className="bdreport-group-info">
-                                <div className="bdreport-group-name">
-                                  {g.groupName}
+                                <div className="bdreport-group-name" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+                                  <span style={{ fontWeight: 700 }}>{g.groupName}</span>
                                   <span className={`bdreport-group-status-badge ${g.isHidden ? 'bdreport-group-status-badge-hidden' : 'bdreport-group-status-badge-visible'}`}>
-                                    {g.isHidden ? 'ซ่อนอยู่' : 'แสดงผล'}
+                                    {g.isHidden ? 'ซ่อนจากเว็บ' : 'แสดงบนเว็บ'}
+                                  </span>
+                                  <span className={`bdreport-group-status-badge`} style={{
+                                    backgroundColor: g.disableWeeklyPush ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)',
+                                    color: g.disableWeeklyPush ? (darkMode ? '#F87171' : '#DC2626') : (darkMode ? '#34D399' : '#059669'),
+                                    border: g.disableWeeklyPush ? '1px solid rgba(239, 68, 68, 0.25)' : '1px solid rgba(16, 185, 129, 0.25)'
+                                  }}>
+                                    {g.disableWeeklyPush ? '🔕 ปิดออโต้' : '🔔 ส่งออโต้จันทร์'}
                                   </span>
                                 </div>
                                 <div className="bdreport-group-id" title={g.groupId}>ID: {g.groupId}</div>
                               </div>
-                              <div className="bdreport-group-actions">
+                              <div className="bdreport-group-actions" style={{ display: 'flex', gap: '8px' }}>
                                 <button
+                                  type="button"
                                   onClick={() => toggleGroupVisibility(g.groupId, g.isHidden)}
                                   className={`bdreport-btn-toggle-visibility ${g.isHidden ? 'bdreport-btn-toggle-visibility-show' : 'bdreport-btn-toggle-visibility-hide'}`}
+                                  style={{ padding: '6px 10px', fontSize: '0.78rem' }}
                                 >
-                                  {g.isHidden ? '👁️ แสดงกลุ่ม' : '🚫 ซ่อนกลุ่ม'}
+                                  {g.isHidden ? '👁️ แสดงหน้าแรก' : '🚫 ซ่อนหน้าแรก'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => toggleWeeklyPush(g.groupId, g.disableWeeklyPush)}
+                                  className={`bdreport-btn-toggle-visibility ${g.disableWeeklyPush ? 'bdreport-btn-toggle-visibility-show' : 'bdreport-btn-toggle-visibility-hide'}`}
+                                  style={{ 
+                                    padding: '6px 10px', 
+                                    fontSize: '0.78rem',
+                                    backgroundColor: g.disableWeeklyPush ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                                    color: g.disableWeeklyPush ? (darkMode ? '#34D399' : '#059669') : (darkMode ? '#F87171' : '#DC2626'),
+                                    border: g.disableWeeklyPush ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(239, 68, 68, 0.4)'
+                                  }}
+                                >
+                                  {g.disableWeeklyPush ? '🔔 เปิดส่งจันทร์' : '🔕 ปิดส่งจันทร์'}
                                 </button>
                               </div>
                             </div>
