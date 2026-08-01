@@ -238,10 +238,8 @@ export async function GET(req: NextRequest) {
                 margin: "xs"
               },
               {
-                type: "box",
-                layout: "vertical",
-                backgroundColor: "#FBBF24",
-                height: "3px",
+                type: "separator",
+                color: "#FBBF24",
                 margin: "md"
               }
             ]
