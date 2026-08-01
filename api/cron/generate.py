@@ -155,14 +155,39 @@ class handler(BaseHTTPRequestHandler):
 
             # Slide 1: Cover
             slide1 = prs.slides[0]
+            
+            # Resolve group names from reports
+            group_names = []
+            if group_id_param and group_id_param != 'all':
+                group_names = sorted(list(set(r.get('groupName') for r in reports if r.get('groupName') and r.get('groupId') == group_id_param)))
+                if not group_names:
+                    # Fallback to any group name in reports matching this group_id_param
+                    group_names = sorted(list(set(r.get('groupName') for r in reports if r.get('groupName'))))
+            else:
+                group_names = sorted(list(set(r.get('groupName') for r in reports if r.get('groupName'))))
+                
+            group_display_text = ", ".join(group_names) if group_names else "ทุกกลุ่ม"
+
             for shape in slide1.shapes:
-                if shape.has_text_frame and "Update" in shape.text_frame.text:
-                    shape.text_frame.text = f"Update {report_date}"
-                    p = shape.text_frame.paragraphs[0]
-                    if len(p.runs) > 0:
-                        p.runs[0].font.name = "TH Sarabun New"
-                        p.runs[0].font.size = Pt(18)
-                        p.runs[0].font.bold = True
+                if shape.has_text_frame:
+                    tf = shape.text_frame
+                    text_str = tf.text
+                    
+                    # 1. Update Date (preserve style by editing run)
+                    if "Update" in text_str:
+                        for paragraph in tf.paragraphs:
+                            for run in paragraph.runs:
+                                if "Update" in run.text:
+                                    run.text = run.text.replace("Update (วันที่)", f"Update {report_date}")
+                                    run.text = run.text.replace("Update", f"Update {report_date}")
+                                    
+                    # 2. Update Group Name on Cover (preserve style by editing run)
+                    if "แผนก" in text_str:
+                        for paragraph in tf.paragraphs:
+                            for run in paragraph.runs:
+                                if "แผนก" in run.text:
+                                    suffix = " " if run.text.endswith(" ") else ""
+                                    run.text = f"{group_display_text}{suffix}"
 
             # Slide 2 and 3 are templates
             slide2 = prs.slides[1]
