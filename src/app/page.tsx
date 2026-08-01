@@ -232,6 +232,37 @@ export default function Dashboard() {
       alert(err.message || 'เกิดข้อผิดพลาดในการเปลี่ยนสถานะการส่งรายสัปดาห์');
     }
   };
+  const updateGroupDefaultFilter = async (groupId: string, defaultFilterGroup: string) => {
+    try {
+      const pwd = adminPassword || adminPasswordInput || '8888';
+      const res = await fetch('/api/groups', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-password': pwd
+        },
+        body: JSON.stringify({
+          groupId,
+          defaultFilterGroup
+        }),
+      });
+
+      if (!res.ok) throw new Error('ไม่สามารถอัปเดตตัวกรองเริ่มต้นได้');
+      
+      // Update local state for allGroups
+      setAllGroups(prev =>
+        prev.map(g => g.groupId === groupId ? { ...g, defaultFilterGroup } : g)
+      );
+
+      // Also update groups list
+      setGroups(prev =>
+        prev.map(g => g.groupId === groupId ? { ...g, defaultFilterGroup } : g)
+      );
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || 'เกิดข้อผิดพลาดในการเปลี่ยนตัวกรองเริ่มต้น');
+    }
+  };
 
   const handleManualWeeklyPush = async () => {
     if (!window.confirm('คุณแน่ใจหรือไม่ว่าต้องการจัดทำและส่งรายงานสไลด์ PPTX ประจำสัปดาห์ของทุกกลุ่มเข้าห้องแชท LINE ในทันที?')) return;
@@ -2119,6 +2150,29 @@ export default function Dashboard() {
                                   </span>
                                 </div>
                                 {/* Removed ID display line */}
+                                <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem' }}>
+                                  <span style={{ color: '#94A3B8' }}>ตัวกรองสไลด์เริ่มต้น:</span>
+                                  <select
+                                    value={g.defaultFilterGroup || "0"}
+                                    onChange={(e) => updateGroupDefaultFilter(g.groupId, e.target.value)}
+                                    style={{
+                                      padding: '4px 8px',
+                                      borderRadius: '6px',
+                                      backgroundColor: darkMode ? '#1E293B' : '#F8FAFC',
+                                      color: darkMode ? '#F1F5F9' : '#0F172A',
+                                      border: '1px solid ' + (darkMode ? '#334155' : '#E2E8F0'),
+                                      fontSize: '0.75rem',
+                                      fontWeight: 500,
+                                      cursor: 'pointer',
+                                      outline: 'none'
+                                    }}
+                                  >
+                                    <option value="0">ไม่มีตัวกรอง (เลือกทุกรายงาน)</option>
+                                    {keywordGroups.map((kwg) => (
+                                      <option key={kwg.id} value={kwg.id}>{kwg.name}</option>
+                                    ))}
+                                  </select>
+                                </div>
                               </div>
                               <div className="bdreport-group-actions" style={{ display: 'flex', gap: '8px' }}>
                                 <button

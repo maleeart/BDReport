@@ -71,7 +71,8 @@ export async function GET(req: NextRequest) {
     if (groupIdParam) {
       const matchDoc = groupsSnapshot.docs.find(doc => doc.id === groupIdParam);
       const gName = matchDoc?.data()?.groupName || `กลุ่ม LINE (${groupIdParam.substring(0, 6)})`;
-      activeGroups = [{ groupId: groupIdParam, groupName: gName }];
+      const filterGroup = matchDoc?.data()?.defaultFilterGroup || '0';
+      activeGroups = [{ groupId: groupIdParam, groupName: gName, defaultFilterGroup: filterGroup }];
     } else {
       if (groupsSnapshot.empty) {
         return NextResponse.json({ message: 'No groups found in database' });
@@ -80,7 +81,8 @@ export async function GET(req: NextRequest) {
         .filter(doc => !doc.data()?.isHidden && !doc.data()?.disableWeeklyPush)
         .map(doc => ({
           groupId: doc.id,
-          groupName: doc.data()?.groupName || 'กลุ่ม LINE'
+          groupName: doc.data()?.groupName || 'กลุ่ม LINE',
+          defaultFilterGroup: doc.data()?.defaultFilterGroup || '0'
         }))
         .filter(g => g.groupId && !g.groupId.startsWith('private_'));
     }
@@ -123,7 +125,7 @@ export async function GET(req: NextRequest) {
 
     // Fetch keyword groups
     const kwSnapshot = await db.collection('keyword_groups').get();
-    const allKwDocs = !kwSnapshot.empty ? kwSnapshot.docs.map(d => d.data()) : [];
+    const allKwDocs = !kwSnapshot.empty ? kwSnapshot.docs.map(d => ({ id: d.id, ...d.data() })) : [];
 
     const sortedGroups = groupsSnapshot.docs
       .filter(doc => !doc.data()?.isHidden)
@@ -137,16 +139,16 @@ export async function GET(req: NextRequest) {
     // Loop through each active group
     for (const group of activeGroups) {
       let activeKeywords: string[] = [];
-      if (allKwDocs.length > 0) {
-        const matchedKwGroup = allKwDocs.find(g => g.defaultGroupId === group.groupId);
+      const filterGroupId = (group as any).defaultFilterGroup || '0';
+      
+      if (filterGroupId !== '0') {
+        const matchedKwGroup = allKwDocs.find(g => g.id === filterGroupId);
         if (matchedKwGroup && matchedKwGroup.keywords && matchedKwGroup.keywords.length > 0) {
           activeKeywords = matchedKwGroup.keywords;
         } else {
-          activeKeywords = allKwDocs.flatMap(g => g.keywords || []);
+          // Fallback keywords
+          activeKeywords = ['งาน', 'ใบงาน', 'ซ่อม', 'ใบแจ้งซ่อม', 'เลขที่', 'เปลี่ยน', 'ตรวจ', 'สำรวจ', 'test', 'ทดสอบ', 'ท.', 'ต.', 'ล้าง', 'PM', 'ประจำ', 'เดือน', 'สัปดาห์', 'อาทิตย์'];
         }
-      }
-      if (activeKeywords.length === 0) {
-        activeKeywords = ['งาน', 'ใบงาน', 'ซ่อม', 'ใบแจ้งซ่อม', 'เลขที่', 'เปลี่ยน', 'ตรวจ', 'สำรวจ', 'test', 'ทดสอบ', 'ท.', 'ต.', 'ล้าง', 'PM', 'ประจำ', 'เดือน', 'สัปดาห์', 'อาทิตย์'];
       }
 
       // Filter reports strictly for this group
@@ -183,15 +185,18 @@ export async function GET(req: NextRequest) {
       }
 
       // Convert reports to check if any matches active keywords
-      const matchingReports = reports.filter(report => {
-        const summary: string[] = report.summary || [report.content || ''];
-        return summary.some((line: string) => 
-          line !== 'ส่งเฉพาะรูปภาพประกอบ' && 
-          line !== 'ไม่มีข้อความประกอบ' && 
-          line !== 'ไม่มีรายงานข้อความ' &&
-          activeKeywords.some((kw: string) => line.toLowerCase().includes(kw.toLowerCase()))
-        );
-      });
+      let matchingReports = reports;
+      if (filterGroupId !== '0' && activeKeywords.length > 0) {
+        matchingReports = reports.filter(report => {
+          const summary: string[] = report.summary || [report.content || ''];
+          return summary.some((line: string) => 
+            line !== 'ส่งเฉพาะรูปภาพประกอบ' && 
+            line !== 'ไม่มีข้อความประกอบ' && 
+            line !== 'ไม่มีรายงานข้อความ' &&
+            activeKeywords.some((kw: string) => line.toLowerCase().includes(kw.toLowerCase()))
+          );
+        });
+      }
 
       if (matchingReports.length === 0) {
         results.push({ groupId: group.groupId, groupName: group.groupName, status: 'skipped', reason: 'No reports matched keyword filters' });

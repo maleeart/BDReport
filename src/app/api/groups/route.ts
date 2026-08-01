@@ -19,7 +19,8 @@ export async function GET(req: NextRequest) {
         groupId: doc.id,
         groupName: doc.data()?.groupName || `กลุ่ม LINE (${doc.id.substring(0, 6)})`,
         isHidden: doc.data()?.isHidden || false,
-        disableWeeklyPush: doc.data()?.disableWeeklyPush || false
+        disableWeeklyPush: doc.data()?.disableWeeklyPush || false,
+        defaultFilterGroup: doc.data()?.defaultFilterGroup || "0"
       }))
       .filter(g => g.groupName && !g.groupName.startsWith('แชทส่วนตัว') && !g.groupId.startsWith('private_'));
 
@@ -41,7 +42,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Database not initialized' }, { status: 500 });
     }
     const body = await req.json();
-    const { groupId, isHidden, disableWeeklyPush } = body;
+    const { groupId, isHidden, disableWeeklyPush, defaultFilterGroup } = body;
 
     if (!groupId) {
       return NextResponse.json({ error: 'Missing groupId' }, { status: 400 });
@@ -50,6 +51,7 @@ export async function POST(req: NextRequest) {
     const updateData: any = {};
     if (isHidden !== undefined) updateData.isHidden = !!isHidden;
     if (disableWeeklyPush !== undefined) updateData.disableWeeklyPush = !!disableWeeklyPush;
+    if (defaultFilterGroup !== undefined) updateData.defaultFilterGroup = defaultFilterGroup;
 
     await db.collection('line_groups').doc(groupId).set(updateData, { merge: true });
 

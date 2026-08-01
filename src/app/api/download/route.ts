@@ -23,14 +23,17 @@ export async function GET(req: NextRequest) {
           const reportData = await reportsRes.json();
           const allReports: any[] = reportData.reports || [];
           
-          // Fetch keyword groups from DB
-          const kwSnapshot = await db.collection('keyword_groups').get();
-          let activeKeywords: string[] = [];
-          if (!kwSnapshot.empty) {
-            activeKeywords = kwSnapshot.docs.flatMap(doc => doc.data().keywords || []);
-          } else {
-            // Fallback to default keywords if DB is empty
-            activeKeywords = ['งาน', 'ใบงาน', 'ซ่อม', 'ใบแจ้งซ่อม', 'เลขที่', 'เปลี่ยน', 'ตรวจ', 'สำรวจ', 'test', 'ทดสอบ', 'ท.', 'ต.', 'ล้าง', 'PM', 'ประจำ', 'เดือน', 'สัปดาห์', 'อาทิตย์'];
+          // Get group settings to check defaultFilterGroup
+          let filterGroupId = '0';
+          if (groupIdParam && groupIdParam !== 'all') {
+            try {
+              const groupDoc = await db.collection('line_groups').doc(groupIdParam).get();
+              if (groupDoc.exists) {
+                filterGroupId = groupDoc.data()?.defaultFilterGroup || '0';
+              }
+            } catch (groupErr) {
+              console.error('Error fetching group default filter:', groupErr);
+            }
           }
 
           // Filter reports list by groupId if groupIdParam is provided and not 'all'
@@ -47,16 +50,33 @@ export async function GET(req: NextRequest) {
             });
           }
 
-          // Filter by active keywords
-          filteredReports = filteredReports.filter(report => {
-            const summary: string[] = report.summary || [];
-            return summary.some((line: string) => 
-              line !== 'ส่งเฉพาะรูปภาพประกอบ' && 
-              line !== 'ไม่มีข้อความประกอบ' && 
-              line !== 'ไม่มีรายงานข้อความ' &&
-              activeKeywords.some((kw: string) => line.toLowerCase().includes(kw.toLowerCase()))
-            );
-          });
+          // Fetch keyword groups if default filter is active (not '0')
+          if (filterGroupId !== '0') {
+            const kwSnapshot = await db.collection('keyword_groups').get();
+            let activeKeywords: string[] = [];
+            if (!kwSnapshot.empty) {
+              const matchedKwGroup = kwSnapshot.docs.find(doc => doc.id === filterGroupId);
+              if (matchedKwGroup && matchedKwGroup.data().keywords) {
+                activeKeywords = matchedKwGroup.data().keywords;
+              } else {
+                // Fallback keywords if matching group not found
+                activeKeywords = ['งาน', 'ใบงาน', 'ซ่อม', 'ใบแจ้งซ่อม', 'เลขที่', 'เปลี่ยน', 'ตรวจ', 'สำรวจ', 'test', 'ทดสอบ', 'ท.', 'ต.', 'ล้าง', 'PM', 'ประจำ', 'เดือน', 'สัปดาห์', 'อาทิตย์'];
+              }
+            } else {
+              activeKeywords = ['งาน', 'ใบงาน', 'ซ่อม', 'ใบแจ้งซ่อม', 'เลขที่', 'เปลี่ยน', 'ตรวจ', 'สำรวจ', 'test', 'ทดสอบ', 'ท.', 'ต.', 'ล้าง', 'PM', 'ประจำ', 'เดือน', 'สัปดาห์', 'อาทิตย์'];
+            }
+
+            // Filter by active keywords
+            filteredReports = filteredReports.filter(report => {
+              const summary: string[] = report.summary || [];
+              return summary.some((line: string) => 
+                line !== 'ส่งเฉพาะรูปภาพประกอบ' && 
+                line !== 'ไม่มีข้อความประกอบ' && 
+                line !== 'ไม่มีรายงานข้อความ' &&
+                activeKeywords.some((kw: string) => line.toLowerCase().includes(kw.toLowerCase()))
+              );
+            });
+          }
 
           // Find the indices of filteredReports in the original allReports list
           const matchingIndices = filteredReports
