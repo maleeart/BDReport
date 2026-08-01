@@ -21,18 +21,51 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const groupIdParam = searchParams.get('groupId') || '';
+    const isManual = adminPasswordHeader === '8888';
+
+    // If not manual trigger, check if today is the scheduled day
+    if (!isManual) {
+      const settingsDoc = await db.collection('settings').doc('weekly_push').get();
+      const settingsData = settingsDoc.data();
+      // Default to Monday (1)
+      const sendDay = settingsDoc.exists && settingsData && settingsData.sendDay !== undefined 
+        ? Number(settingsData.sendDay) 
+        : 1;
+
+      if (sendDay === -1) {
+        return NextResponse.json({ message: 'Automated weekly push is disabled in settings' });
+      }
+
+      // Check current day of week in Bangkok timezone (UTC+7)
+      const now = new Date();
+      const bangkokDate = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+      const bangkokDay = bangkokDate.getUTCDay(); // 0 is Sunday, 1 is Monday, etc.
+
+      if (bangkokDay !== sendDay) {
+        return NextResponse.json({ 
+          message: `Skipping automated push. Today is day ${bangkokDay}, but scheduled day is ${sendDay}.` 
+        });
+      }
+    }
+
     // Determine target week (previous week relative to today)
     const prevWeekStr = getPreviousISOWeekString(new Date());
     const range = getWeekRangeFromWeekStr(prevWeekStr);
     
-    // Fetch all active LINE groups (not hidden & not weekly-push disabled)
+    // Fetch all active LINE groups
     const groupsSnapshot = await db.collection('line_groups').get();
     if (groupsSnapshot.empty) {
       return NextResponse.json({ message: 'No groups found in database' });
     }
 
     const activeGroups = groupsSnapshot.docs
-      .filter(doc => !doc.data()?.isHidden && !doc.data()?.disableWeeklyPush)
+      .filter(doc => {
+        if (groupIdParam) {
+          return doc.id === groupIdParam;
+        }
+        return !doc.data()?.isHidden && !doc.data()?.disableWeeklyPush;
+      })
       .map(doc => ({
         groupId: doc.id,
         groupName: doc.data()?.groupName || 'กลุ่ม LINE'

@@ -89,6 +89,7 @@ export default function Dashboard() {
   // Admin Dashboard Keyword States
   const [adminTab, setAdminTab] = useState<'groups' | 'keywords'>('groups');
   const [isPushingWeeklyReports, setIsPushingWeeklyReports] = useState<boolean>(false);
+  const [weeklyPushDay, setWeeklyPushDay] = useState<number>(1);
   const [newKeywordGroupName, setNewKeywordGroupName] = useState<string>('');
   const [newKeywordList, setNewKeywordList] = useState<string[]>([]);
   const [currentNewKeywordInput, setCurrentNewKeywordInput] = useState<string>('');
@@ -259,6 +260,69 @@ export default function Dashboard() {
     }
   };
 
+  const fetchWeeklyPushSetting = async () => {
+    try {
+      const res = await fetch('/api/settings/weekly-push');
+      if (res.ok) {
+        const data = await res.json();
+        setWeeklyPushDay(data.sendDay !== undefined ? data.sendDay : 1);
+      }
+    } catch (err) {
+      console.error('Error fetching weekly push setting:', err);
+    }
+  };
+
+  const handleSaveWeeklyPushDay = async (day: number) => {
+    try {
+      const res = await fetch('/api/settings/weekly-push', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-password': adminPassword || '8888'
+        },
+        body: JSON.stringify({ sendDay: day })
+      });
+      if (!res.ok) throw new Error('ไม่สามารถบันทึกวันส่งรายงานอัตโนมัติได้');
+      setWeeklyPushDay(day);
+      alert('บันทึกการตั้งค่าวันส่งรายงานอัตโนมัติสำเร็จแล้ว');
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || 'เกิดข้อผิดพลาดในการบันทึกการตั้งค่า');
+    }
+  };
+
+  const handleManualGroupPush = async (groupId: string, groupName: string) => {
+    if (!window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการจัดทำและส่งรายงานสไลด์ PPTX ประจำสัปดาห์ของกลุ่ม "${groupName}" เข้าห้องแชท LINE ในทันที?`)) return;
+    
+    setIsPushingWeeklyReports(true);
+    try {
+      const res = await fetch(`/api/cron/weekly-push?groupId=${groupId}`, {
+        method: 'GET',
+        headers: {
+          'x-admin-password': adminPassword || '8888'
+        }
+      });
+      
+      if (!res.ok) throw new Error(`ไม่สามารถส่งรายงานกลุ่ม "${groupName}" เข้า LINE ได้`);
+      const data = await res.json();
+      const results = data.results || [];
+      const groupResult = results.find((r: any) => r.groupId === groupId);
+      
+      if (groupResult && groupResult.status === 'success') {
+        alert(`ส่งรายงานสไลด์เข้า LINE กลุ่ม "${groupName}" เรียบร้อยแล้ว!`);
+      } else if (groupResult && groupResult.status === 'skipped') {
+        alert(`ข้ามการส่ง: กลุ่ม "${groupName}" ${groupResult.reason === 'No reports found' ? 'ไม่มีข้อความรายงานใหม่ในสัปดาห์ที่แล้ว' : 'ไม่พบข้อความรายงานที่ผ่านตัวกรองคำสำคัญ'}`);
+      } else {
+        alert(`ล้มเหลว: ${groupResult?.error || 'เกิดข้อผิดพลาดไม่ทราบสาเหตุ'}`);
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || 'เกิดข้อผิดพลาดขณะส่งรายงานเข้า LINE');
+    } finally {
+      setIsPushingWeeklyReports(false);
+    }
+  };
+
   const handleAddNewKeywordWord = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const cleanWord = currentNewKeywordInput.trim();
@@ -337,6 +401,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (showGroupManager && isAdminAuthenticated) {
       fetchAllGroups();
+      fetchWeeklyPushSetting();
     }
   }, [showGroupManager, isAdminAuthenticated]);
 
@@ -1804,19 +1869,61 @@ export default function Dashboard() {
                   {/* Tab 1: Group Visibility */}
                   {adminTab === 'groups' && (
                     <>
+                      {/* Weekly Push Global settings */}
+                      <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '6px',
+                        padding: '12px',
+                        backgroundColor: darkMode ? 'rgba(30, 41, 59, 0.5)' : 'rgba(241, 245, 249, 0.8)',
+                        border: `1px solid ${darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}`,
+                        borderRadius: '8px',
+                        marginBottom: '14px'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: darkMode ? '#F8FAFC' : '#1E293B' }}>
+                            📅 ตั้งค่าวันส่งรายงานสรุปอัตโนมัติ:
+                          </span>
+                          <select
+                            value={weeklyPushDay}
+                            onChange={(e) => handleSaveWeeklyPushDay(Number(e.target.value))}
+                            style={{
+                              padding: '6px 12px',
+                              borderRadius: '6px',
+                              backgroundColor: darkMode ? '#0F172A' : '#FFFFFF',
+                              border: `1.5px solid ${darkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)'}`,
+                              color: darkMode ? '#F8FAFC' : '#0F172A',
+                              fontSize: '0.85rem',
+                              fontWeight: 600,
+                              outline: 'none',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <option value={1}>วันจันทร์ (Monday)</option>
+                            <option value={2}>วันอังคาร (Tuesday)</option>
+                            <option value={3}>วันพุธ (Wednesday)</option>
+                            <option value={4}>วันพฤหัสบดี (Thursday)</option>
+                            <option value={5}>วันศุกร์ (Friday)</option>
+                            <option value={6}>วันเสาร์ (Saturday)</option>
+                            <option value={0}>วันอาทิตย์ (Sunday)</option>
+                            <option value={-1}>❌ ปิดการส่งรายงานอัตโนมัติ</option>
+                          </select>
+                        </div>
+                      </div>
+
                       {/* Manual trigger section */}
                       <div style={{ 
                         display: 'flex', 
                         flexDirection: 'column',
                         gap: '8px', 
                         padding: '12px', 
-                        backgroundColor: darkMode ? 'rgba(59, 130, 246, 0.08)' : 'rgba(30, 58, 138, 0.04)',
-                        border: `1.5px dashed ${darkMode ? 'rgba(59, 130, 246, 0.3)' : 'rgba(30, 58, 138, 0.2)'}`,
+                        backgroundColor: darkMode ? 'rgba(99, 102, 241, 0.08)' : 'rgba(79, 70, 229, 0.04)',
+                        border: `1.5px dashed ${darkMode ? 'rgba(99, 102, 241, 0.3)' : 'rgba(79, 70, 229, 0.2)'}`,
                         borderRadius: '8px',
                         marginBottom: '16px'
                       }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
-                          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: darkMode ? '#93C5FD' : '#1E3A8A' }}>
+                          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: darkMode ? '#818CF8' : '#4F46E5' }}>
                             🚀 ตัวช่วยส่งรายงานแมนนวล:
                           </span>
                           <span style={{ fontSize: '0.72rem', color: darkMode ? '#94A3B8' : '#64748B' }}>
@@ -1865,7 +1972,7 @@ export default function Dashboard() {
                                     color: g.disableWeeklyPush ? (darkMode ? '#F87171' : '#DC2626') : (darkMode ? '#34D399' : '#059669'),
                                     border: g.disableWeeklyPush ? '1px solid rgba(239, 68, 68, 0.25)' : '1px solid rgba(16, 185, 129, 0.25)'
                                   }}>
-                                    {g.disableWeeklyPush ? '🔕 ปิดออโต้' : '🔔 ส่งออโต้จันทร์'}
+                                    {g.disableWeeklyPush ? '🔕 ปิดออโต้' : '🔔 ส่งออโต้'}
                                   </span>
                                 </div>
                                 <div className="bdreport-group-id" title={g.groupId}>ID: {g.groupId}</div>
@@ -1891,7 +1998,22 @@ export default function Dashboard() {
                                     border: g.disableWeeklyPush ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(239, 68, 68, 0.4)'
                                   }}
                                 >
-                                  {g.disableWeeklyPush ? '🔔 เปิดส่งจันทร์' : '🔕 ปิดส่งจันทร์'}
+                                  {g.disableWeeklyPush ? '🔔 เปิดส่งออโต้' : '🔕 ปิดส่งออโต้'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleManualGroupPush(g.groupId, g.groupName)}
+                                  className="bdreport-btn-toggle-visibility"
+                                  style={{
+                                    padding: '6px 10px',
+                                    fontSize: '0.78rem',
+                                    backgroundColor: 'rgba(79, 70, 229, 0.12)',
+                                    color: darkMode ? '#A5B4FC' : '#4F46E5',
+                                    border: '1px solid rgba(79, 70, 229, 0.35)',
+                                    fontWeight: 'bold'
+                                  }}
+                                >
+                                  ✈️ ส่งด่วน
                                 </button>
                               </div>
                             </div>
