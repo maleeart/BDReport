@@ -98,24 +98,26 @@ export async function GET(req: NextRequest) {
     const host = req.headers.get('host') || 'localhost:3000';
     const protocol = req.url.startsWith('https') ? 'https' : 'http';
 
+    // Query all reports for the previous week once
+    const reportsSnapshot = await db.collection('line_reports')
+      .where('createdAt', '>=', range.start)
+      .where('createdAt', '<=', range.end)
+      .get();
+
+    const allReports = reportsSnapshot.docs.map(doc => doc.data());
     const results: any[] = [];
 
     // Loop through each active group
     for (const group of activeGroups) {
-      // Query if this group has reports for the previous week
-      const reportsSnapshot = await db.collection('line_reports')
-        .where('groupId', '==', group.groupId)
-        .where('createdAt', '>=', range.start)
-        .where('createdAt', '<=', range.end)
-        .get();
+      // Filter reports for this group in memory
+      const reports = allReports.filter(r => r.groupId === group.groupId);
 
-      if (reportsSnapshot.empty) {
+      if (reports.length === 0) {
         results.push({ groupId: group.groupId, groupName: group.groupName, status: 'skipped', reason: 'No reports found' });
         continue;
       }
 
       // Convert reports to check if any matches active keywords
-      const reports = reportsSnapshot.docs.map(doc => doc.data());
       const matchingReports = reports.filter(report => {
         const summary: string[] = report.summary || [report.content || ''];
         return summary.some((line: string) => 
