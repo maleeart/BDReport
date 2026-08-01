@@ -266,6 +266,7 @@ export async function GET(req: NextRequest) {
             layout: "vertical",
             paddingAll: "16px",
             backgroundColor: "#F1F5F9",
+            spacing: "sm",
             contents: [
               {
                 type: "button",
@@ -276,6 +277,16 @@ export async function GET(req: NextRequest) {
                   type: "uri",
                   label: "📥 ดาวน์โหลดไฟล์ PPTX",
                   uri: downloadUrl
+                }
+              },
+              {
+                type: "button",
+                style: "secondary",
+                height: "sm",
+                action: {
+                  type: "uri",
+                  label: "🔍 ดูรายละเอียดเพิ่มเติม",
+                  uri: `https://${host}/?week=${targetWeekStr}&groupId=${group.groupId}`
                 }
               }
             ]
