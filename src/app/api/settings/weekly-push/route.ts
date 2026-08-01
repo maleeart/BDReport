@@ -12,7 +12,9 @@ export async function GET(req: NextRequest) {
     const data = doc.data();
     // Default to Monday (1)
     const sendDay = doc.exists && data && data.sendDay !== undefined ? data.sendDay : 1;
-    return NextResponse.json({ sendDay });
+    // Default to 08:00 AM (8)
+    const sendHour = doc.exists && data && data.sendHour !== undefined ? data.sendHour : 8;
+    return NextResponse.json({ sendDay, sendHour });
   } catch (error: any) {
     console.error('Error fetching weekly push setting:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -31,14 +33,15 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { sendDay } = body;
+    const { sendDay, sendHour } = body;
 
-    if (sendDay === undefined) {
-      return NextResponse.json({ error: 'Missing sendDay' }, { status: 400 });
+    if (sendDay === undefined || sendHour === undefined) {
+      return NextResponse.json({ error: 'Missing sendDay or sendHour' }, { status: 400 });
     }
 
     await db.collection('settings').doc('weekly_push').set({
-      sendDay: Number(sendDay)
+      sendDay: Number(sendDay),
+      sendHour: Number(sendHour)
     }, { merge: true });
 
     return NextResponse.json({ success: true });

@@ -90,6 +90,7 @@ export default function Dashboard() {
   const [adminTab, setAdminTab] = useState<'groups' | 'keywords'>('groups');
   const [isPushingWeeklyReports, setIsPushingWeeklyReports] = useState<boolean>(false);
   const [weeklyPushDay, setWeeklyPushDay] = useState<number>(1);
+  const [weeklyPushHour, setWeeklyPushHour] = useState<number>(8);
   const [newKeywordGroupName, setNewKeywordGroupName] = useState<string>('');
   const [newKeywordList, setNewKeywordList] = useState<string[]>([]);
   const [currentNewKeywordInput, setCurrentNewKeywordInput] = useState<string>('');
@@ -266,13 +267,14 @@ export default function Dashboard() {
       if (res.ok) {
         const data = await res.json();
         setWeeklyPushDay(data.sendDay !== undefined ? data.sendDay : 1);
+        setWeeklyPushHour(data.sendHour !== undefined ? data.sendHour : 8);
       }
     } catch (err) {
       console.error('Error fetching weekly push setting:', err);
     }
   };
 
-  const handleSaveWeeklyPushDay = async (day: number) => {
+  const handleSaveWeeklyPushSettings = async (day: number, hour: number) => {
     try {
       const res = await fetch('/api/settings/weekly-push', {
         method: 'POST',
@@ -280,11 +282,12 @@ export default function Dashboard() {
           'Content-Type': 'application/json',
           'x-admin-password': adminPassword || '8888'
         },
-        body: JSON.stringify({ sendDay: day })
+        body: JSON.stringify({ sendDay: day, sendHour: hour })
       });
-      if (!res.ok) throw new Error('ไม่สามารถบันทึกวันส่งรายงานอัตโนมัติได้');
+      if (!res.ok) throw new Error('ไม่สามารถบันทึกวันและเวลาส่งรายงานอัตโนมัติได้');
       setWeeklyPushDay(day);
-      alert('บันทึกการตั้งค่าวันส่งรายงานอัตโนมัติสำเร็จแล้ว');
+      setWeeklyPushHour(hour);
+      alert('บันทึกการตั้งค่าวันและเวลาส่งรายงานอัตโนมัติสำเร็จแล้ว');
     } catch (err: any) {
       console.error(err);
       alert(err.message || 'เกิดข้อผิดพลาดในการบันทึกการตั้งค่า');
@@ -1873,8 +1876,8 @@ export default function Dashboard() {
                       <div style={{
                         display: 'flex',
                         flexDirection: 'column',
-                        gap: '6px',
-                        padding: '12px',
+                        gap: '10px',
+                        padding: '14px',
                         backgroundColor: darkMode ? 'rgba(30, 41, 59, 0.5)' : 'rgba(241, 245, 249, 0.8)',
                         border: `1px solid ${darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}`,
                         borderRadius: '8px',
@@ -1886,7 +1889,7 @@ export default function Dashboard() {
                           </span>
                           <select
                             value={weeklyPushDay}
-                            onChange={(e) => handleSaveWeeklyPushDay(Number(e.target.value))}
+                            onChange={(e) => handleSaveWeeklyPushSettings(Number(e.target.value), weeklyPushHour)}
                             style={{
                               padding: '6px 12px',
                               borderRadius: '6px',
@@ -1909,6 +1912,35 @@ export default function Dashboard() {
                             <option value={-1}>❌ ปิดการส่งรายงานอัตโนมัติ</option>
                           </select>
                         </div>
+
+                        {weeklyPushDay !== -1 && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', borderTop: `1px solid ${darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`, paddingTop: '8px' }}>
+                            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: darkMode ? '#F8FAFC' : '#1E293B' }}>
+                              ⏰ ตั้งค่าเวลาส่งอัตโนมัติ:
+                            </span>
+                            <select
+                              value={weeklyPushHour}
+                              onChange={(e) => handleSaveWeeklyPushSettings(weeklyPushDay, Number(e.target.value))}
+                              style={{
+                                padding: '6px 12px',
+                                borderRadius: '6px',
+                                backgroundColor: darkMode ? '#0F172A' : '#FFFFFF',
+                                border: `1.5px solid ${darkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)'}`,
+                                color: darkMode ? '#F8FAFC' : '#0F172A',
+                                fontSize: '0.85rem',
+                                fontWeight: 600,
+                                outline: 'none',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              {Array.from({ length: 24 }).map((_, hr) => (
+                                <option key={hr} value={hr}>
+                                  {String(hr).padStart(2, '0')}:00 น.
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
                       </div>
 
                       {/* Manual trigger section */}

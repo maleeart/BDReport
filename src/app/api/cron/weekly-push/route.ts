@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
     const groupIdParam = searchParams.get('groupId') || '';
     const isManual = adminPasswordHeader === '8888';
 
-    // If not manual trigger, check if today is the scheduled day
+    // If not manual trigger, check if today is the scheduled day and hour
     if (!isManual) {
       const settingsDoc = await db.collection('settings').doc('weekly_push').get();
       const settingsData = settingsDoc.data();
@@ -32,19 +32,24 @@ export async function GET(req: NextRequest) {
       const sendDay = settingsDoc.exists && settingsData && settingsData.sendDay !== undefined 
         ? Number(settingsData.sendDay) 
         : 1;
+      // Default to 08:00 AM (8)
+      const sendHour = settingsDoc.exists && settingsData && settingsData.sendHour !== undefined
+        ? Number(settingsData.sendHour)
+        : 8;
 
       if (sendDay === -1) {
         return NextResponse.json({ message: 'Automated weekly push is disabled in settings' });
       }
 
-      // Check current day of week in Bangkok timezone (UTC+7)
+      // Check current day of week and hour in Bangkok timezone (UTC+7)
       const now = new Date();
       const bangkokDate = new Date(now.getTime() + 7 * 60 * 60 * 1000);
       const bangkokDay = bangkokDate.getUTCDay(); // 0 is Sunday, 1 is Monday, etc.
+      const bangkokHour = bangkokDate.getUTCHours(); // 0 to 23
 
-      if (bangkokDay !== sendDay) {
+      if (bangkokDay !== sendDay || bangkokHour !== sendHour) {
         return NextResponse.json({ 
-          message: `Skipping automated push. Today is day ${bangkokDay}, but scheduled day is ${sendDay}.` 
+          message: `Skipping automated push. Today is day ${bangkokDay} (hour ${bangkokHour}), but scheduled is day ${sendDay} (hour ${sendHour}).` 
         });
       }
     }
