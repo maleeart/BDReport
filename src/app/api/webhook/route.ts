@@ -4,6 +4,8 @@ import { Jimp } from 'jimp';
 import { db } from '@/lib/firebaseAdmin';
 import { FieldValue } from 'firebase-admin/firestore';
 
+export const dynamic = 'force-dynamic';
+
 async function trackWriteAndCleanup(data: any) {
   if (!db) return;
   try {
