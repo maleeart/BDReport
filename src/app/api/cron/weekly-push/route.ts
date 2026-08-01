@@ -236,11 +236,6 @@ export async function GET(req: NextRequest) {
                 size: "sm",
                 weight: "bold",
                 margin: "xs"
-              },
-              {
-                type: "separator",
-                color: "#FBBF24",
-                margin: "md"
               }
             ]
           },
@@ -274,15 +269,26 @@ export async function GET(req: NextRequest) {
             spacing: "sm",
             contents: [
               {
-                type: "button",
-                style: "primary",
-                color: "#1E3A8A",
-                height: "sm",
+                type: "box",
+                layout: "vertical",
+                backgroundColor: "#FBBF24",
+                cornerRadius: "md",
+                paddingAll: "10px",
                 action: {
                   type: "uri",
                   label: "📥 ดาวน์โหลดไฟล์ PPTX",
                   uri: downloadUrl
-                }
+                },
+                contents: [
+                  {
+                    type: "text",
+                    text: "📥 ดาวน์โหลดไฟล์ PPTX",
+                    color: "#1E3A8A",
+                    align: "center",
+                    weight: "bold",
+                    size: "sm"
+                  }
+                ]
               },
               {
                 type: "button",
