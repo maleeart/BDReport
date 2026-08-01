@@ -203,7 +203,7 @@ export async function GET(req: NextRequest) {
       const weekNum = weekParts[1];
       const displayWeekRange = formatThaiWeekRange(range.start, range.end);
       
-      const downloadUrl = `${protocol}://${host}/api/download?week=${targetWeekStr}&groupId=${group.groupId}`;
+      const downloadUrl = `https://${host}/?week=${targetWeekStr}&groupId=${group.groupId}&autoDownload=true`;
 
       const flexMessage = {
         type: 'flex',
