@@ -247,8 +247,18 @@ export default function Dashboard() {
         }
       });
       
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || data.message || 'ไม่สามารถส่งรายงานสัปดาห์เข้า LINE ได้');
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch (e) {
+        const text = await res.text().catch(() => '');
+        data = { error: text || `HTTP Status ${res.status}` };
+      }
+
+      if (!res.ok) {
+        const detail = data.error || data.message || `HTTP Code ${res.status}`;
+        throw new Error(`ไม่สามารถส่งรายงานสัปดาห์เข้า LINE ได้ (สาเหตุ: ${detail})`);
+      }
       
       if (data.message && !data.results) {
         alert(`แจ้งเตือนจากระบบ: ${data.message}`);
@@ -317,8 +327,18 @@ export default function Dashboard() {
         }
       });
       
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || data.message || `ไม่สามารถส่งรายงานกลุ่ม "${groupName}" เข้า LINE ได้`);
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch (e) {
+        const text = await res.text().catch(() => '');
+        data = { error: text || `HTTP Status ${res.status}` };
+      }
+
+      if (!res.ok) {
+        const detail = data.error || data.message || `HTTP Code ${res.status}`;
+        throw new Error(`ไม่สามารถส่งรายงานกลุ่ม "${groupName}" เข้า LINE ได้ (สาเหตุ: ${detail})`);
+      }
       
       const results = data.results || [];
       const groupResult = results.find((r: any) => r.groupId === groupId);
