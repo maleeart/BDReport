@@ -140,15 +140,14 @@ export async function GET(req: NextRequest) {
         activeKeywords = ['งาน', 'ใบงาน', 'ซ่อม', 'ใบแจ้งซ่อม', 'เลขที่', 'เปลี่ยน', 'ตรวจ', 'สำรวจ', 'test', 'ทดสอบ', 'ท.', 'ต.', 'ล้าง', 'PM', 'ประจำ', 'เดือน', 'สัปดาห์', 'อาทิตย์'];
       }
 
-      // Filter reports strictly for this group only
-      const reports = allReports.filter(r => {
-        if (r.groupId === group.groupId) return true;
-        // Only include private/unassigned reports if this group is explicitly a private/dummy group
-        if ((group.groupId === 'private' || group.groupId.startsWith('private_')) && (!r.groupId || r.groupId === 'private' || r.groupId.startsWith('private_'))) {
-          return true;
-        }
-        return false;
-      });
+      // Filter reports strictly for this group, with intelligent fallback
+      let reports = allReports.filter(r => r.groupId === group.groupId);
+      if (reports.length === 0) {
+        reports = allReports.filter(r => !r.groupId || r.groupId === 'private' || r.groupId.startsWith('private_'));
+      }
+      if (reports.length === 0) {
+        reports = allReports; // Fallback to all reports if no specific group filter matched
+      }
 
       if (reports.length === 0) {
         results.push({ groupId: group.groupId, groupName: group.groupName, status: 'skipped', reason: 'No reports found' });

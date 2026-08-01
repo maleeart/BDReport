@@ -116,9 +116,11 @@ class handler(BaseHTTPRequestHandler):
             reports = report_data.get('reports', [])
             report_date = report_data.get('date', '')
 
-            # If a specific groupId is requested, strictly filter reports for that group
+            # If a specific groupId is requested, filter reports for that group (with fallback if empty)
             if group_id_param and group_id_param != 'all':
-                reports = [r for r in reports if r.get('groupId') == group_id_param]
+                matching_reports = [r for r in reports if r.get('groupId') == group_id_param]
+                if matching_reports:
+                    reports = matching_reports
             
             # Filter reports by indices if parameter is specified
             if indices_param is not None:
