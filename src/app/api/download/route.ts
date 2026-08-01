@@ -64,6 +64,9 @@ export async function GET(req: NextRequest) {
 
     // Securely invoke /api/cron/generate on the server-side by appending the secret
     let generateUrl = `${protocol}://${host}/api/cron/generate?secret=${cronSecret}&week=${weekParam}`;
+    if (groupIdParam) {
+      generateUrl += `&groupId=${encodeURIComponent(groupIdParam)}`;
+    }
     if (finalIndicesParam !== undefined && finalIndicesParam !== '') {
       generateUrl += `&indices=${finalIndicesParam}`;
     }

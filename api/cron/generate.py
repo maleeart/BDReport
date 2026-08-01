@@ -68,6 +68,7 @@ class handler(BaseHTTPRequestHandler):
             query_secret = query_params.get('secret', [None])[0]
             week_param = query_params.get('week', [None])[0]
             indices_param = query_params.get('indices', [None])[0]
+            group_id_param = query_params.get('groupId', [None])[0]
             
             # Default to current week if not provided (adjusted to Bangkok timezone UTC+7)
             if not week_param:
@@ -95,6 +96,8 @@ class handler(BaseHTTPRequestHandler):
             host = self.headers.get('Host', 'localhost:3000')
             protocol = 'https' if 'https' in self.headers.get('X-Forwarded-Proto', '') else 'http'
             reports_url = f"{protocol}://{host}/api/reports?week={week_param}&includeImages=true"
+            if group_id_param:
+                reports_url += f"&groupId={urllib.parse.quote(group_id_param)}"
 
             # Make request
             req = urllib.request.Request(reports_url)
@@ -112,6 +115,10 @@ class handler(BaseHTTPRequestHandler):
             # If no reports, return JSON info
             reports = report_data.get('reports', [])
             report_date = report_data.get('date', '')
+
+            # If a specific groupId is requested, strictly filter reports for that group
+            if group_id_param and group_id_param != 'all':
+                reports = [r for r in reports if r.get('groupId') == group_id_param]
             
             # Filter reports by indices if parameter is specified
             if indices_param is not None:
