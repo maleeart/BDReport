@@ -63,41 +63,36 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Determine target week (previous week relative to today)
-    const prevWeekStr = getPreviousISOWeekString(new Date());
-    const range = getWeekRangeFromWeekStr(prevWeekStr);
-    
-    // Fetch all active LINE groups
+    // Fetch all LINE groups
     const groupsSnapshot = await db.collection('line_groups').get();
-    if (groupsSnapshot.empty) {
-      return NextResponse.json({ message: 'No groups found in database' });
-    }
+    
+    let activeGroups: Array<{ groupId: string; groupName: string }> = [];
 
-    const activeGroups = groupsSnapshot.docs
-      .filter(doc => {
-        if (groupIdParam) {
-          return doc.id === groupIdParam;
-        }
-        return !doc.data()?.isHidden && !doc.data()?.disableWeeklyPush;
-      })
-      .map(doc => ({
-        groupId: doc.id,
-        groupName: doc.data()?.groupName || 'กลุ่ม LINE'
-      }))
-      .filter(g => g.groupId && !g.groupId.startsWith('private_'));
+    if (groupIdParam) {
+      const matchDoc = groupsSnapshot.docs.find(doc => doc.id === groupIdParam);
+      const gName = matchDoc?.data()?.groupName || `กลุ่ม LINE (${groupIdParam.substring(0, 6)})`;
+      activeGroups = [{ groupId: groupIdParam, groupName: gName }];
+    } else {
+      if (groupsSnapshot.empty) {
+        return NextResponse.json({ message: 'No groups found in database' });
+      }
+      activeGroups = groupsSnapshot.docs
+        .filter(doc => !doc.data()?.isHidden && !doc.data()?.disableWeeklyPush)
+        .map(doc => ({
+          groupId: doc.id,
+          groupName: doc.data()?.groupName || 'กลุ่ม LINE'
+        }))
+        .filter(g => g.groupId && !g.groupId.startsWith('private_'));
+    }
 
     if (activeGroups.length === 0) {
       return NextResponse.json({ message: 'No active groups to push to' });
     }
 
-    // Fetch all keyword groups to use for filtering
-    const kwSnapshot = await db.collection('keyword_groups').get();
-    let activeKeywords: string[] = [];
-    if (!kwSnapshot.empty) {
-      activeKeywords = kwSnapshot.docs.flatMap(doc => doc.data().keywords || []);
-    } else {
-      activeKeywords = ['งาน', 'ใบงาน', 'ซ่อม', 'ใบแจ้งซ่อม', 'เลขที่', 'เปลี่ยน', 'ตรวจ', 'สำรวจ', 'test', 'ทดสอบ', 'ท.', 'ต.', 'ล้าง', 'PM', 'ประจำ', 'เดือน', 'สัปดาห์', 'อาทิตย์'];
-    }
+    // Determine target week
+    const requestedWeek = searchParams.get('week');
+    let targetWeekStr = requestedWeek || (isManual ? getISOWeekString(new Date()) : getPreviousISOWeekString(new Date()));
+    let range = getWeekRangeFromWeekStr(targetWeekStr);
 
     const accessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
     if (!accessToken) {
@@ -107,17 +102,44 @@ export async function GET(req: NextRequest) {
     const host = req.headers.get('host') || 'localhost:3000';
     const protocol = req.url.startsWith('https') ? 'https' : 'http';
 
-    // Query all reports for the previous week once
-    const reportsSnapshot = await db.collection('line_reports')
+    // Query all reports for target week once
+    let reportsSnapshot = await db.collection('line_reports')
       .where('createdAt', '>=', range.start)
       .where('createdAt', '<=', range.end)
       .get();
 
+    // If manual trigger and target week is empty, fall back to previous week
+    if (isManual && reportsSnapshot.empty && !requestedWeek) {
+      targetWeekStr = getPreviousISOWeekString(new Date());
+      range = getWeekRangeFromWeekStr(targetWeekStr);
+      reportsSnapshot = await db.collection('line_reports')
+        .where('createdAt', '>=', range.start)
+        .where('createdAt', '<=', range.end)
+        .get();
+    }
+
     const allReports = reportsSnapshot.docs.map(doc => doc.data());
     const results: any[] = [];
 
+    // Fetch keyword groups
+    const kwSnapshot = await db.collection('keyword_groups').get();
+    const allKwDocs = !kwSnapshot.empty ? kwSnapshot.docs.map(d => d.data()) : [];
+
     // Loop through each active group
     for (const group of activeGroups) {
+      let activeKeywords: string[] = [];
+      if (allKwDocs.length > 0) {
+        const matchedKwGroup = allKwDocs.find(g => g.defaultGroupId === group.groupId);
+        if (matchedKwGroup && matchedKwGroup.keywords && matchedKwGroup.keywords.length > 0) {
+          activeKeywords = matchedKwGroup.keywords;
+        } else {
+          activeKeywords = allKwDocs.flatMap(g => g.keywords || []);
+        }
+      }
+      if (activeKeywords.length === 0) {
+        activeKeywords = ['งาน', 'ใบงาน', 'ซ่อม', 'ใบแจ้งซ่อม', 'เลขที่', 'เปลี่ยน', 'ตรวจ', 'สำรวจ', 'test', 'ทดสอบ', 'ท.', 'ต.', 'ล้าง', 'PM', 'ประจำ', 'เดือน', 'สัปดาห์', 'อาทิตย์'];
+      }
+
       // Filter reports for this group in memory
       const reports = allReports.filter(r => r.groupId === group.groupId);
 
@@ -143,11 +165,11 @@ export async function GET(req: NextRequest) {
       }
 
       // Build LINE Flex Message
-      const weekParts = prevWeekStr.split('-W');
+      const weekParts = targetWeekStr.split('-W');
       const weekNum = weekParts[1];
       const displayWeekRange = formatThaiWeekRange(range.start, range.end);
       
-      const downloadUrl = `${protocol}://${host}/api/download?week=${prevWeekStr}&groupId=${group.groupId}`;
+      const downloadUrl = `${protocol}://${host}/api/download?week=${targetWeekStr}&groupId=${group.groupId}`;
 
       const flexMessage = {
         type: 'flex',
@@ -293,7 +315,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ prevWeek: prevWeekStr, results });
+    return NextResponse.json({ week: targetWeekStr, results });
   } catch (error: any) {
     console.error('Weekly push error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });

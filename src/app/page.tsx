@@ -239,7 +239,8 @@ export default function Dashboard() {
     setIsPushingWeeklyReports(true);
     try {
       const pwd = adminPassword || '8888';
-      const res = await fetch(`/api/cron/weekly-push?manual=true&secret=${pwd}&adminPassword=${pwd}`, {
+      const weekParam = selectedWeek ? `&week=${selectedWeek}` : '';
+      const res = await fetch(`/api/cron/weekly-push?manual=true${weekParam}&secret=${pwd}&adminPassword=${pwd}`, {
         method: 'GET',
         headers: {
           'x-admin-password': pwd
@@ -308,7 +309,8 @@ export default function Dashboard() {
     setIsPushingWeeklyReports(true);
     try {
       const pwd = adminPassword || '8888';
-      const res = await fetch(`/api/cron/weekly-push?groupId=${groupId}&manual=true&secret=${pwd}&adminPassword=${pwd}`, {
+      const weekParam = selectedWeek ? `&week=${selectedWeek}` : '';
+      const res = await fetch(`/api/cron/weekly-push?groupId=${groupId}&manual=true${weekParam}&secret=${pwd}&adminPassword=${pwd}`, {
         method: 'GET',
         headers: {
           'x-admin-password': pwd
