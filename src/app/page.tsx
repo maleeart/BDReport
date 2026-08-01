@@ -2118,7 +2118,7 @@ export default function Dashboard() {
                                     {g.disableWeeklyPush ? '🔕 ปิดออโต้' : '🔔 ส่งออโต้'}
                                   </span>
                                 </div>
-                                <div className="bdreport-group-id" title={g.groupId}>ID: {g.groupId}</div>
+                                {/* Removed ID display line */}
                               </div>
                               <div className="bdreport-group-actions" style={{ display: 'flex', gap: '8px' }}>
                                 <button
