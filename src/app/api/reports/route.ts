@@ -422,7 +422,7 @@ export async function GET(req: NextRequest) {
           groupName: doc.data()?.groupName,
           isHidden: doc.data()?.isHidden || false
         }))
-        .filter(g => g.groupName && !g.groupName.startsWith('แชทส่วนตัว') && !g.groupId.startsWith('private_') && !g.groupName.startsWith('กลุ่ม LINE'));
+        .filter(g => g.groupName && !g.groupName.startsWith('แชทส่วนตัว') && !g.groupId.startsWith('private_'));
     } catch (err) {
       console.error('Error fetching actual groups:', err);
     }
