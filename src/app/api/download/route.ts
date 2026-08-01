@@ -36,7 +36,15 @@ export async function GET(req: NextRequest) {
           // Filter reports list by groupId if groupIdParam is provided and not 'all'
           let filteredReports = allReports;
           if (groupIdParam && groupIdParam !== 'all') {
-            filteredReports = filteredReports.filter(r => r.groupId === groupIdParam);
+            const mainGroupId = allReports.length > 0 ? (allReports.find(r => r.groupId && r.groupId !== 'private' && !r.groupId.startsWith('private_'))?.groupId || 'EGAT_IOT') : 'EGAT_IOT';
+            filteredReports = filteredReports.filter(r => {
+              if (r.groupId === groupIdParam) return true;
+              if ((groupIdParam === mainGroupId || groupIdParam === 'EGAT_IOT' || groupIdParam.includes('อาคาร')) &&
+                  (!r.groupId || r.groupId === 'private' || r.groupId.startsWith('private_'))) {
+                return true;
+              }
+              return false;
+            });
           }
 
           // Filter by active keywords

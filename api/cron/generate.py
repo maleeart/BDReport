@@ -116,19 +116,18 @@ class handler(BaseHTTPRequestHandler):
             reports = report_data.get('reports', [])
             report_date = report_data.get('date', '')
 
-            # If a specific groupId is requested, filter reports for that group (with fallback if empty)
-            if group_id_param and group_id_param != 'all':
-                matching_reports = [r for r in reports if r.get('groupId') == group_id_param]
-                if matching_reports:
-                    reports = matching_reports
-            
-            # Filter reports by indices if parameter is specified
+            # If indices are specified, select them from the original unfiltered reports first
             if indices_param is not None:
                 try:
                     selected_indices = [int(x) for x in indices_param.split(',') if x.strip().isdigit()]
                     reports = [reports[i] for i in selected_indices if i < len(reports)]
                 except Exception as filter_err:
                     print(f"Error filtering reports by indices: {filter_err}")
+            # Otherwise, if a specific groupId is requested, filter reports for that group (with fallback if empty)
+            elif group_id_param and group_id_param != 'all':
+                matching_reports = [r for r in reports if r.get('groupId') == group_id_param]
+                if matching_reports:
+                    reports = matching_reports
 
             if not reports:
                 self.send_response(200)

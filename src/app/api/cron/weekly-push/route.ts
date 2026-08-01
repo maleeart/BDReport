@@ -194,7 +194,7 @@ export async function GET(req: NextRequest) {
       const weekNum = weekParts[1];
       const displayWeekRange = formatThaiWeekRange(range.start, range.end);
       
-      const downloadUrl = `${protocol}://${host}/api/download?week=${targetWeekStr}&groupId=${targetLineId}`;
+      const downloadUrl = `${protocol}://${host}/api/download?week=${targetWeekStr}&groupId=${group.groupId}`;
 
       const flexMessage = {
         type: 'flex',
