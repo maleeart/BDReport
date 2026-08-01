@@ -446,10 +446,28 @@ export default function Dashboard() {
     }
   }, [showGroupManager, isAdminAuthenticated]);
 
-  // Set default week to current week on mount
+  // Set default week to current week on mount (with URL parameters check)
   useEffect(() => {
-    const today = new Date();
-    setSelectedWeek(getISOWeekString(today));
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const weekParam = params.get('week');
+      const groupIdParam = params.get('groupId');
+      
+      if (weekParam) {
+        setSelectedWeek(weekParam);
+      } else {
+        const today = new Date();
+        setSelectedWeek(getISOWeekString(today));
+      }
+      
+      if (groupIdParam) {
+        setSelectedGroupId(groupIdParam);
+        setHasSetDefaultGroup(true);
+      }
+    } else {
+      const today = new Date();
+      setSelectedWeek(getISOWeekString(today));
+    }
   }, []);
 
   const fetchReports = async (weekStr: string) => {
@@ -468,13 +486,51 @@ export default function Dashboard() {
       setGroups(fetchedGroups);
       setThaiWeekRange(data.date || '');
 
+      // Check URL parameters for autoDownload
+      const params = new URLSearchParams(window.location.search);
+      const autoDownloadParam = params.get('autoDownload');
+      const groupIdParam = params.get('groupId');
+
       // Auto-select 'งานอาคารและบริเวณ' group as default on initial load
-      if (!hasSetDefaultGroup && fetchedGroups.length > 0) {
+      if (!hasSetDefaultGroup && fetchedGroups.length > 0 && !groupIdParam) {
         const targetGroup = fetchedGroups.find((g: any) => g.groupName && g.groupName.includes('งานอาคารและบริเวณ'));
         if (targetGroup) {
           setSelectedGroupId(targetGroup.groupId);
           setHasSetDefaultGroup(true);
         }
+      }
+
+      if (autoDownloadParam === 'true' && groupIdParam) {
+        setTimeout(() => {
+          const targetGroupId = groupIdParam;
+          const filtered = fetchedReports.filter((report: any) => {
+            if (targetGroupId !== 'all' && report.groupId !== targetGroupId) return false;
+            const summary: string[] = report.summary || [];
+            return summary.some((line: string) => 
+              line !== 'ส่งเฉพาะรูปภาพประกอบ' && 
+              line !== 'ไม่มีข้อความประกอบ' && 
+              line !== 'ไม่มีรายงานข้อความ' &&
+              DEFAULT_KEYWORDS.some((kw: string) => line.toLowerCase().includes(kw.toLowerCase()))
+            );
+          });
+
+          const indices = filtered.map((r: any) => fetchedReports.indexOf(r)).filter((idx: number) => idx !== -1);
+          setSelectedIndices(new Set(indices));
+
+          if (indices.length > 0) {
+            const indicesStr = indices.sort((a, b) => a - b).join(',');
+            const downloadUrl = `/api/download?week=${weekStr}&indices=${indicesStr}&groupId=${targetGroupId}`;
+            
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || 
+                             (navigator.userAgent.indexOf('Line') > -1);
+
+            if (isMobile) {
+              window.location.href = downloadUrl;
+            } else {
+              window.open(downloadUrl, '_blank');
+            }
+          }
+        }, 800);
       }
     } catch (err: any) {
       setError(err.message || 'เกิดข้อผิดพลาดในการโหลดข้อมูล');
