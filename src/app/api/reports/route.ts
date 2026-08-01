@@ -431,11 +431,14 @@ export async function GET(req: NextRequest) {
       console.error('Error fetching actual groups:', err);
     }
 
-    // Filter out reports from hidden groups
-    const hiddenGroupIds = new Set(actualGroups.filter(g => g.isHidden).map(g => g.groupId));
-    reportsList = reportsList.filter(rep => !hiddenGroupIds.has(rep.groupId));
+    // Filter out reports from hidden groups (unless showHidden is requested)
+    const showHidden = searchParams.get('showHidden') === 'true';
+    if (!showHidden) {
+      const hiddenGroupIds = new Set(actualGroups.filter(g => g.isHidden).map(g => g.groupId));
+      reportsList = reportsList.filter(rep => !hiddenGroupIds.has(rep.groupId));
+    }
 
-    // Active groups only for mapping and default group
+    // Active groups only for default group
     const activeGroups = actualGroups.filter(g => !g.isHidden);
 
     // Default main group fallback
@@ -443,14 +446,15 @@ export async function GET(req: NextRequest) {
     const mainGroupName = activeGroups.length > 0 ? activeGroups[0].groupName : 'EGAT IOT';
 
     // Map reports to their correct groups
+    const mappingGroups = showHidden ? actualGroups : activeGroups;
     reportsList.forEach((rep) => {
       // If the report's groupId is a private chat, consolidate it to the main group
       if (!rep.groupId || rep.groupId === 'private' || rep.groupId.startsWith('private_')) {
         rep.groupId = mainGroupId;
         rep.groupName = mainGroupName;
       } else {
-        // Find the group name from our activeGroups list
-        const matchingGroup = activeGroups.find(g => g.groupId === rep.groupId);
+        // Find the group name from our mappingGroups list
+        const matchingGroup = mappingGroups.find(g => g.groupId === rep.groupId);
         if (matchingGroup) {
           rep.groupName = matchingGroup.groupName;
         }

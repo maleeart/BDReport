@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
     let finalIndicesParam = indicesParam;
     if (!indicesParam) {
       try {
-        const reportsRes = await fetch(`${protocol}://${host}/api/reports?week=${weekParam}`);
+        const reportsRes = await fetch(`${protocol}://${host}/api/reports?week=${weekParam}&showHidden=true`);
         if (reportsRes.ok) {
           const reportData = await reportsRes.json();
           const allReports: any[] = reportData.reports || [];

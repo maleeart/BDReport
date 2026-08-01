@@ -95,7 +95,7 @@ class handler(BaseHTTPRequestHandler):
             # 3. Fetch Report Data from local Node.js API
             host = self.headers.get('Host', 'localhost:3000')
             protocol = 'https' if 'https' in self.headers.get('X-Forwarded-Proto', '') else 'http'
-            reports_url = f"{protocol}://{host}/api/reports?week={week_param}&includeImages=true"
+            reports_url = f"{protocol}://{host}/api/reports?week={week_param}&includeImages=true&showHidden=true"
             if group_id_param:
                 reports_url += f"&groupId={urllib.parse.quote(group_id_param)}"
 
