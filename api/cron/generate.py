@@ -173,13 +173,18 @@ class handler(BaseHTTPRequestHandler):
                     tf = shape.text_frame
                     text_str = tf.text
                     
-                    # 1. Update Date (preserve style by editing run)
+                    # 1. Update Date (preserve style by editing first run and clearing others)
                     if "Update" in text_str:
                         for paragraph in tf.paragraphs:
-                            for run in paragraph.runs:
+                            update_run_idx = -1
+                            for i, run in enumerate(paragraph.runs):
                                 if "Update" in run.text:
-                                    run.text = run.text.replace("Update (วันที่)", f"Update {report_date}")
-                                    run.text = run.text.replace("Update", f"Update {report_date}")
+                                    update_run_idx = i
+                                    run.text = f"Update {report_date}"
+                                    break
+                            if update_run_idx != -1:
+                                for j in range(update_run_idx + 1, len(paragraph.runs)):
+                                    paragraph.runs[j].text = ""
                                     
                     # 2. Update Group Name on Cover (preserve style by editing run)
                     if "แผนก" in text_str:
