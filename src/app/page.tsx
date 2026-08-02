@@ -2064,7 +2064,7 @@ export default function Dashboard() {
                           </span>
                           <select
                             value={weeklyPushDay}
-                            onChange={(e) => handleSaveWeeklyPushSettings(Number(e.target.value), weeklyPushHour)}
+                            onChange={(e) => setWeeklyPushDay(Number(e.target.value))}
                             style={{
                               padding: '6px 12px',
                               borderRadius: '6px',
@@ -2095,7 +2095,7 @@ export default function Dashboard() {
                             </span>
                             <select
                               value={weeklyPushHour}
-                              onChange={(e) => handleSaveWeeklyPushSettings(weeklyPushDay, Number(e.target.value))}
+                              onChange={(e) => setWeeklyPushHour(Number(e.target.value))}
                               style={{
                                 padding: '6px 12px',
                                 borderRadius: '6px',
@@ -2116,6 +2116,27 @@ export default function Dashboard() {
                             </select>
                           </div>
                         )}
+
+                        <button
+                          type="button"
+                          onClick={() => handleSaveWeeklyPushSettings(weeklyPushDay, weeklyPushHour)}
+                          className="bdreport-btn"
+                          style={{
+                            marginTop: '6px',
+                            height: '36px',
+                            fontSize: '0.82rem',
+                            background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+                            border: 'none',
+                            color: '#FFFFFF',
+                            width: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '6px'
+                          }}
+                        >
+                          💾 บันทึกการตั้งค่าเวลาส่งรายงาน
+                        </button>
                       </div>
 
                       {/* Manual trigger section */}
@@ -2183,8 +2204,8 @@ export default function Dashboard() {
                                   </span>
                                 </div>
                                 {/* Removed ID display line */}
-                                <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem' }}>
-                                  <span style={{ color: '#94A3B8' }}>ตัวกรองสไลด์เริ่มต้น:</span>
+                                <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem', flexWrap: 'nowrap' }}>
+                                  <span style={{ color: '#94A3B8', whiteSpace: 'nowrap', flexShrink: 0 }}>ตัวกรองสไลด์เริ่มต้น:</span>
                                   <select
                                     value={g.defaultFilterGroup || "0"}
                                     onChange={(e) => updateGroupDefaultFilter(g.groupId, e.target.value)}
@@ -2197,7 +2218,9 @@ export default function Dashboard() {
                                       fontSize: '0.75rem',
                                       fontWeight: 500,
                                       cursor: 'pointer',
-                                      outline: 'none'
+                                      outline: 'none',
+                                      maxWidth: '180px',
+                                      textOverflow: 'ellipsis'
                                     }}
                                   >
                                     <option value="0">ไม่มีตัวกรอง (เลือกทุกรายงาน)</option>
