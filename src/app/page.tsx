@@ -2190,8 +2190,10 @@ export default function Dashboard() {
                           {allGroups.map((g) => (
                             <div key={g.groupId} className="bdreport-group-row" style={{ padding: '14px 12px' }}>
                               <div className="bdreport-group-info">
-                                <div className="bdreport-group-name" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
-                                  <span style={{ fontWeight: 700 }}>{g.groupName}</span>
+                                <div className="bdreport-group-name">
+                                  <span style={{ fontWeight: 700, fontSize: '0.92rem' }}>{g.groupName}</span>
+                                </div>
+                                <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '4px' }}>
                                   <span className={`bdreport-group-status-badge ${g.isHidden ? 'bdreport-group-status-badge-hidden' : 'bdreport-group-status-badge-visible'}`}>
                                     {g.isHidden ? 'ซ่อนจากเว็บ' : 'แสดงบนเว็บ'}
                                   </span>
@@ -2230,36 +2232,38 @@ export default function Dashboard() {
                                   </select>
                                 </div>
                               </div>
-                              <div className="bdreport-group-actions" style={{ display: 'flex', gap: '8px' }}>
+                              <div className="bdreport-group-actions" style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
                                 <button
                                   type="button"
                                   onClick={() => toggleGroupVisibility(g.groupId, g.isHidden)}
                                   className={`bdreport-btn-toggle-visibility ${g.isHidden ? 'bdreport-btn-toggle-visibility-show' : 'bdreport-btn-toggle-visibility-hide'}`}
-                                  style={{ padding: '6px 10px', fontSize: '0.78rem' }}
+                                  style={{ padding: '6px 8px', fontSize: '0.75rem', whiteSpace: 'nowrap' }}
                                 >
-                                  {g.isHidden ? '👁️ แสดงหน้าแรก' : '🚫 ซ่อนหน้าแรก'}
+                                  {g.isHidden ? '👁️ แสดงเว็บ' : '🙈 ซ่อนเว็บ'}
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => toggleWeeklyPush(g.groupId, g.disableWeeklyPush)}
                                   className={`bdreport-btn-toggle-visibility ${g.disableWeeklyPush ? 'bdreport-btn-toggle-visibility-show' : 'bdreport-btn-toggle-visibility-hide'}`}
                                   style={{ 
-                                    padding: '6px 10px', 
-                                    fontSize: '0.78rem',
+                                    padding: '6px 8px', 
+                                    fontSize: '0.75rem',
+                                    whiteSpace: 'nowrap',
                                     backgroundColor: g.disableWeeklyPush ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
                                     color: g.disableWeeklyPush ? (darkMode ? '#34D399' : '#059669') : (darkMode ? '#F87171' : '#DC2626'),
                                     border: g.disableWeeklyPush ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(239, 68, 68, 0.4)'
                                   }}
                                 >
-                                  {g.disableWeeklyPush ? '🔔 เปิดส่งออโต้' : '🔕 ปิดส่งออโต้'}
+                                  {g.disableWeeklyPush ? '🔔 เปิดส่ง' : '🔕 ปิดส่ง'}
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => handleManualGroupPush(g.groupId, g.groupName)}
                                   className="bdreport-btn-toggle-visibility"
                                   style={{
-                                    padding: '6px 10px',
-                                    fontSize: '0.78rem',
+                                    padding: '6px 8px',
+                                    fontSize: '0.75rem',
+                                    whiteSpace: 'nowrap',
                                     backgroundColor: 'rgba(79, 70, 229, 0.12)',
                                     color: darkMode ? '#A5B4FC' : '#4F46E5',
                                     border: '1px solid rgba(79, 70, 229, 0.35)',
