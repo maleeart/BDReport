@@ -1,63 +1,132 @@
-# BDReport
+# BDReport (ระบบจัดทำรายงานสไลด์ PPTX และส่งอัตโนมัติเข้ากลุ่ม LINE)
 
-Automated PowerPoint generator and daily team reports system integrated with LINE Webhook, Firestore, and Gemini AI. This system operates 100% free under the Firebase Spark Plan (no paid storage bucket required).
-
-## Features
-- **LINE Webhook Integration**: Receives text and image reports, saving text logs and lossless Base64 images directly inside Firestore.
-- **AI-Powered Summaries**: Utilizes Gemini 1.5 Flash to automatically summarize daily work and generate concise keywords/titles.
-- **PowerPoint Generation**: Dynamically copies and modifies a custom PowerPoint template (`templateReport.pptx`) using Python (`python-pptx` runtime), placing user summaries on the left and centering user images on the right.
-- **Dashboard Web UI**: Control panel to view daily reports, preview images, and securely download generated presentations.
+ระบบจัดทำรายงานการปฏิบัติงานประจำสัปดาห์ในรูปแบบ PowerPoint (PPTX) อัตโนมัติ โดยเชื่อมต่อกับ LINE Webhook สำหรับรับรายงานประจำวันจากผู้ปฏิบัติงาน นำมาประมวลผลสรุปด้วย Gemini AI และประกอบเป็นสไลด์ PPTX ด้วย Python (`python-pptx`) พร้อมทั้งแผงควบคุมระบบ (Admin Dashboard) และตัวยิงส่งรายงานเข้าห้องแชท LINE อัตโนมัติตามรอบเวลาที่กำหนด
 
 ---
 
-## Environment Variables (Setup)
+## 🌟 ฟีเจอร์หลัก (Key Features)
 
-Create a `.env.local` file (for local testing) and configure these variables in **Vercel Project Settings -> Environment Variables**:
+1. **LINE Webhook Integration (`/api/webhook`)**:
+   * รับข้อมูลรายงานประจำวัน (ภาพถ่ายและข้อความสรุปงาน) จากสมาชิกในกลุ่ม LINE
+   * ดาวน์โหลดภาพส่งตรงจาก LINE API แปลงเป็น Base64 แบบ lossless และจัดเก็บลง Firestore ทันที (ไม่ต้องพึ่งพา Cloud Storage แบบเสียค่าบริการ)
+   * ป้องกันการสับสนของข้อมูลด้วยระบบคัดกรอง ID กลุ่ม (`groupId`) อย่างเข้มงวด
+
+2. **AI-Powered Summarization (Gemini 1.5 Flash)**:
+   * เมื่อแอดมินหรือระบบดึงข้อมูลรายงาน จะใช้ Gemini 1.5 Flash ในการอ่านวิเคราะห์ข้อความดิบของผู้ปฏิบัติงาน แล้วสรุปย่อเป็นหัวข้อสั้น ๆ กระชับ เหมาะสำหรับใส่บนหน้าสไลด์
+
+3. **Dynamic PowerPoint Generation (`api/cron/generate.py`)**:
+   * ทำงานผ่านระบบ Serverless Python Function บน Vercel โดยการอ่านไฟล์ต้นแบบ `templateReport.pptx`
+   * **สไลด์หน้าแรก (หน้าปก)**: ตัดข้อความเดิมของแผนกออก และเขียนแทนที่ด้วยชื่อกลุ่ม LINE ปัจจุบันที่สั่งทำรายงาน (หากเลือกดาวน์โหลดรายงานของทุกกลุ่ม จะคั่นด้วยเครื่องหมายจุลภาค `,` แทน) พร้อมจัดฟอร์แมตวันที่อัปเดตคลีน ๆ ไม่มีคำว่า *(วันที่)* ต่อท้าย โดยยังคงรูปแบบตัวอักษร ฟอนต์ ขนาด และสีเดิม 100%
+   * **สไลด์หน้าเนื้อหา**: จัดเรียงข้อความสรุปงานไว้ฝั่งซ้าย และจัดขนาดภาพถ่ายประกอบไว้ตรงกลางฝั่งขวาอย่างสมดุลสวยงาม
+
+4. **แผงควบคุมจัดการกลุ่มแชท (Group Manager Dashboard)**:
+   * เข้าใช้งานด้วยรหัสผ่านแอดมิน `8888`
+   * **ซ่อนกลุ่มแชทจากหน้าเว็บ (Visibility Toggle)**: สำหรับซ่อนกลุ่มไลน์ส่วนตัวหรือกลุ่มลับไม่ให้แสดงบนเว็บไซต์ทั่วไป แต่แอดมินยังสั่งประมวลผลหลังบ้านได้ปกติ
+   * **ตัวกรองสไลด์เริ่มต้น (Default Filter per Group)**: สามารถผูกกลุ่มคำสำคัญเริ่มต้นของแต่ละกลุ่มได้แยกกัน (เช่น กลุ่ม EGAT IOT ตั้งเป็น "ไม่มีตัวกรอง" เพื่อเอาทุกรายงาน, กลุ่มบำรุงรักษาตั้งเป็นตัวกรอง "งานบำรุงรักษา" เพื่อกรองเฉพาะคีย์เวิร์ดซ่อมแซม)
+   * **เปิด/ปิดออโต้ (Weekly Push Toggle)**: ตั้งค่าแยกเฉพาะแต่ละกลุ่มได้ว่าต้องการให้ระบบยิงรายงานสรุปเข้าแชทกลุ่มอัตโนมัติในวันส่งรายงานหรือไม่
+   * **ปุ่มส่งด่วน (Manual Push)**: แอดมินสามารถกดเพื่อจัดทำไฟล์รายงานสรุปประจำสัปดาห์นั้น ๆ และส่ง Flex Message เข้ากลุ่ม LINE นั้นแบบแมนนวลได้ทันที
+
+5. **ระบบส่งรายงานอัตโนมัติแบบยืดหยุ่น (Automated Weekly Push)**:
+   * ทำงานร่วมกับบริการตั้งเวลาภายนอก (เช่น **Cron-Job.org**) ยิงเข้า `/api/cron/weekly-push` ทุกชั่วโมง
+   * ระบบจะประเมินวันและเวลาไทย ณ ปัจจุบัน หากตรงกับ **วันและเวลาส่งอัตโนมัติ** ที่แอดมินบันทึกไว้ในหน้าตั้งค่าเว็บระบบ จะทำการสรุปรายงานและส่ง Flex Message เข้าห้องแชท LINE ทันที
+
+6. **LINE Flex Message ดีไซน์พรีเมียม**:
+   * ตกแต่งการ์ดด้วย **ธีมสีน้ำเงิน-เหลือง กฟผ. (EGAT Navy Blue & Yellow)** สวยงามและมีระดับ
+   * **ปุ่มดาวน์โหลดรายงานเด่นชัด**: ปุ่มดาวน์โหลด PPTX ขนาดใหญ่สีเหลืองทอง ตัวอักษรสีน้ำเงินเข้มขัดเจนมองเห็นง่าย (สร้างผ่านกล่องคลิกได้แบบพิเศษเพื่อเลี่ยงปัญหาสีตัวอักษรจางของ LINE)
+   * **ปุ่มดูรายละเอียดเพิ่มเติม**: ปุ่มสีเทาอ่อนด้านล่างสำหรับกดเชื่อมโยงไปยังหน้าเว็บหลักของแอปตามสัปดาห์และกลุ่มนั้น ๆ
+
+---
+
+## 🛠️ โครงสร้างฐานข้อมูล (Firestore Schema)
+
+* **`line_reports`** (เก็บรายงานประจำวัน):
+  * `userId`: ID ผู้ส่งรายงาน
+  * `userName`: ชื่อผู้ส่งรายงาน
+  * `content`: ข้อความสรุปรายงาน
+  * `imageUrl`: ข้อมูลรูปภาพ (Base64)
+  * `groupId`: รหัสกลุ่ม LINE ที่รายงานถูกส่งมา
+  * `timestamp`: วันที่และเวลาที่บันทึกข้อมูล
+  * `weekStr`: สัปดาห์ประจำปี (ฟอร์แมต `YYYY-Www`)
+  * `summary`: ข้อความสรุปจาก AI Gemini
+
+* **`line_groups`** (เก็บการตั้งค่าของกลุ่มแชท):
+  * Document ID คือ `groupId` ของ LINE
+  * `groupName`: ชื่อกลุ่มแชท
+  * `isHidden`: สถานะการซ่อนกลุ่มจากหน้าเว็บหลัก (`true`/`false`)
+  * `disableWeeklyPush`: สถานะการปิดระบบส่งรายงานอัตโนมัติประจำสัปดาห์ (`true`/`false`)
+  * `defaultFilterGroup`: ID ของกลุ่มคำสำคัญที่ใช้เป็นตัวกรองเริ่มต้น (หากเป็น `"0"` หมายถึงไม่ใช้ตัวกรอง)
+
+* **`keyword_groups`** (เก็บกลุ่มคำสำคัญสำหรับตัวกรอง):
+  * `name`: ชื่อกลุ่มคำสำคัญ (เช่น งานบำรุงรักษา)
+  * `keywords`: อาร์เรย์ของคำสำคัญที่ใช้คัดกรอง (เช่น `["งาน", "ซ่อม", "PM", "ตรวจ"]`)
+
+* **`settings`** -> Document **`weekly_push`** (เก็บการตั้งค่าเวลาส่งออโต้):
+  * `sendDay`: วันที่เลือกส่ง (0 = วันอาทิตย์, 1 = วันจันทร์, ..., 6 = วันเสาร์, -1 = ปิดระบบส่งออโต้ทั้งหมด)
+  * `sendHour`: ชั่วโมงที่เลือกส่ง (0 - 23)
+
+---
+
+## ⚙️ การตั้งค่าสภาพแวดล้อม (Environment Variables)
+
+กำหนดค่าตัวแปรสภาพแวดล้อมเหล่านี้ในโปรเจกต์ Vercel (และไฟล์ `.env.local` สำหรับรันเทสบนเครื่องเครื่องพัฒนา):
 
 ```env
-# Firebase Admin SDK Configuration (Firestore only)
-FIREBASE_PROJECT_ID="your-project-id"
-FIREBASE_CLIENT_EMAIL="your-client-email@..."
+# Firebase Admin SDK Credentials
+FIREBASE_PROJECT_ID="your-firebase-project-id"
+FIREBASE_CLIENT_EMAIL="your-firebase-client-email@..."
 FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
 
-# LINE Messaging API Configuration
-LINE_CHANNEL_SECRET="your-channel-secret"
-LINE_CHANNEL_ACCESS_TOKEN="your-channel-access-token"
+# LINE Messaging API
+LINE_CHANNEL_SECRET="your-line-channel-secret"
+LINE_CHANNEL_ACCESS_TOKEN="your-line-channel-access-token"
 
-# Gemini API Key (Free tier from Google AI Studio)
+# Google AI Studio (Gemini API)
 GEMINI_API_KEY="your-gemini-api-key"
 
-# Secret Token for securing Cron endpoints
-CRON_SECRET="your-cron-secret-token"
-
-# Optional: Discord Webhook integration
-DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/..."
+# รหัสรักษาความปลอดภัยสำหรับ Cron
+CRON_SECRET="your-custom-cron-secret-token"
 ```
 
 ---
 
-## API Endpoints
+## 🚀 แนวทางการตั้งค่าระบบให้ส่งรายงานอัตโนมัติ (Automation Setup)
 
-### 1. LINE Webhook
-- **URL**: `/api/webhook`
-- **Method**: `POST`
-- **Description**: Webhook endpoint to receive events from LINE.
-  - Text messages are saved to Firestore (`line_reports` collection).
-  - Images are downloaded, converted to Base64, and saved directly to the Firestore document.
+เนื่องจากระบบนี้ใช้ Vercel Hobby Plan (บัญชีฟรี) ซึ่งมีข้อจำกัดในการรัน Cron Job ภายในตัว จึงแนะนำให้ตั้งค่าร่วมกับ **Cron-Job.org** ซึ่งฟรีและไม่มีข้อจำกัดด้านเวลาทำงาน:
 
-### 2. Reports Fetch API
-- **URL**: `/api/reports?date=YYYY-MM-DD`
-- **Method**: `GET`
-- **Description**: Fetches daily reports for the specified date (Asia/Bangkok timezone), groups them by user, and calls Gemini AI to summarize text logs.
+1. สมัครใช้งานฟรีที่ [Cron-Job.org](https://cron-job.org/)
+2. กดสร้าง Cron Job ใหม่ (Create Cron Job)
+3. ระบุ URL เป็น:
+   `https://[ชื่อเว็บแอป Vercel ของคุณ]/api/cron/weekly-push?adminPassword=8888`
+4. ตั้งค่า **Schedule** ให้รัน: **`Every hour`** (รันทุก ๆ 1 ชั่วโมง)
+5. กดบันทึก
+6. เข้าไปหน้าตั้งค่าบนหน้าเว็บหลัก เลือกวันและเวลาส่งที่ต้องการ (เช่น วันอาทิตย์ 21:00 น.) และกด **บันทึกการตั้งค่าเวลาส่งรายงาน**
+7. ระบบจะทำงานและส่งรายงานเข้ากลุ่มโดยอัตโนมัติอย่างถูกต้องทุกสัปดาห์
 
-### 3. Cron Job PPTX Generator
-- **URL**: `/api/cron/generate?secret=<CRON_SECRET>&date=YYYY-MM-DD`
-- **Method**: `GET`
-- **Headers**: Supports `Authorization: Bearer <CRON_SECRET>`
-- **Description**: Exposes a Vercel Python Serverless function that uses `python-pptx` to populate `templateReport.pptx` with today's report data, and returns the file download. If `DISCORD_WEBHOOK_URL` is set, it automatically posts the file to Discord.
-- **Vercel Cron Trigger**: Runs automatically at **17:00 ICT daily** (`0 10 * * *` UTC) via `vercel.json` scheduler.
+---
 
-### 4. Secure Download Proxy
-- **URL**: `/api/download?date=YYYY-MM-DD`
-- **Method**: `GET`
-- **Description**: Server-side proxy for browser downloads. It securely appends the `CRON_SECRET` on the server before hitting the generator route, ensuring the secret is never exposed to the client browser bundle.
+## 💻 คู่มือนักพัฒนา (Developer Guide)
+
+### โครงสร้างโฟลเดอร์ของโปรเจกต์
+* `src/app/`: ซอร์สโค้ดหลักของแอปพลิเคชัน Next.js (หน้าเว็บหลักและ API Routes)
+  * `src/app/page.tsx`: หน้าแรกของหน้ากากควบคุมเว็บหลัก แผงจัดการกลุ่ม และโมดอลตั้งค่าต่าง ๆ
+  * `src/app/api/webhook/route.ts`: ตัวรับ Webhook จากไลน์บอท
+  * `src/app/api/download/route.ts`: API สำหรับจัดเตรียมดัชนีภาพสไลด์และส่งไปเรียกใช้งาน Python หลังบ้าน
+  * `src/app/api/cron/weekly-push/route.ts`: ระบบส่งสรุปรายสัปดาห์เข้าไลน์กลุ่ม
+  * `src/app/api/groups/route.ts`: ดึงและแก้ไขสถานะกลุ่มแชทในฐานข้อมูล
+* `api/cron/generate.py`: สคริปต์เซิร์ฟเวอร์เลสไพทอนที่เรียกใช้งาน `python-pptx` เพื่อประมวลผลจัดหน้าสไลด์รายงาน PPTX จากเทมเพลต
+* `templateReport.pptx`: ไฟล์ต้นแบบสไลด์ PowerPoint ที่ใช้สำหรับเขียนและจัดรูปแบบข้อมูลลงไป
+
+### การติดตั้งและทดสอบแบบ Local
+1. ติดตั้ง Dependencies ฝั่ง Node.js:
+   ```bash
+   npm install
+   ```
+2. ติดตั้ง Python Library (หากต้องการทดสอบระบบคอมไพล์สไลด์ในเครื่องตัวเอง):
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. เริ่มรันเซิร์ฟเวอร์สำหรับพัฒนาในเครื่อง:
+   ```bash
+   npm run dev
+   ```
+   และรันแอปพลิเคชันจะพร้อมเข้าใช้งานที่ `http://localhost:3000`
