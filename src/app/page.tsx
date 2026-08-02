@@ -1035,7 +1035,7 @@ export default function Dashboard() {
 
         .bdreport-modal-card {
           width: 95%;
-          max-width: 550px;
+          max-width: 650px;
           max-height: 80vh;
           background-color: ${darkMode ? '#1E293B' : '#FFFFFF'};
           border: 1px solid ${darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)'};
@@ -1122,7 +1122,8 @@ export default function Dashboard() {
           display: flex;
           flex-direction: column;
           gap: 2px;
-          max-width: 70%;
+          flex: 1;
+          min-width: 0;
         }
 
         .bdreport-group-name {
