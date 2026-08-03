@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ message: 'No groups found in database' });
       }
       activeGroups = groupsSnapshot.docs
-        .filter(doc => !doc.data()?.isHidden && !doc.data()?.disableWeeklyPush)
+        .filter(doc => !doc.data()?.disableWeeklyPush)
         .map(doc => ({
           groupId: doc.id,
           groupName: doc.data()?.groupName || 'กลุ่ม LINE',
