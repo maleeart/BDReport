@@ -92,20 +92,9 @@ export async function GET(req: NextRequest) {
     
     const now = new Date();
     const bangkokDate = new Date(now.getTime() + 7 * 60 * 60 * 1000);
-    const bangkokDay = bangkokDate.getUTCDay(); // 0 is Sunday, 1 is Monday...
     
-    let defaultWeek: string;
-    if (isManual) {
-      defaultWeek = getISOWeekString(bangkokDate);
-    } else {
-      // If automated push runs on Sunday (0), we send the current week (just ending).
-      // If it runs on Monday (1) or later, we send the previous week.
-      if (bangkokDay === 0) {
-        defaultWeek = getISOWeekString(bangkokDate);
-      } else {
-        defaultWeek = getPreviousISOWeekString(bangkokDate);
-      }
-    }
+    // Always target the current week containing the push date
+    const defaultWeek = getISOWeekString(bangkokDate);
     
     let targetWeekStr = requestedWeek || defaultWeek;
     let range = getWeekRangeFromWeekStr(targetWeekStr);
