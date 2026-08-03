@@ -1693,7 +1693,7 @@ export default function Dashboard() {
         {/* Reports List */}
         {!loading && !actionLoading && !error && reports.length === 0 && (
           <div style={styles.emptyCard}>
-            <p style={{ fontSize: '1.2rem', marginBottom: '8px' }}>📭 ไม่พบรายงานของสัปญหาดนี้</p>
+            <p style={{ fontSize: '1.2rem', marginBottom: '8px' }}>📭 ไม่พบรายงานของสัปดาห์นี้</p>
             <p style={{ color: styles.emptyCardSubText?.color || '#94A3B8', fontSize: '0.9rem' }}>สมาชิกในทีมยังไม่ได้ส่งรายงานผ่านแชทบอท LINE</p>
           </div>
         )}
