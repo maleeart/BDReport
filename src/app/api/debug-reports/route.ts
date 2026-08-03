@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
-import { getPreviousISOWeekString, getWeekRangeFromWeekStr } from '@/lib/dateUtils';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,4 +45,46 @@ export async function GET(req: NextRequest) {
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+}
+
+// Helper Date Functions (duplicated from api/reports/route.ts for timezone safety)
+function getISOWeekString(date: Date): string {
+  const target = new Date(date.valueOf());
+  const dayNr = (date.getDay() + 6) % 7;
+  target.setDate(target.getDate() - dayNr + 3);
+  const firstThursday = target.valueOf();
+  target.setMonth(0, 1);
+  if (target.getDay() !== 4) {
+    target.setMonth(0, 1 + ((4 - target.getDay() + 7) % 7));
+  }
+  const weekNum = 1 + Math.ceil((firstThursday - target.valueOf()) / 604800000);
+  const year = new Date(firstThursday).getFullYear();
+  return `${year}-W${String(weekNum).padStart(2, '0')}`;
+}
+
+function getPreviousISOWeekString(date: Date): string {
+  const prevDate = new Date(date.getTime());
+  prevDate.setDate(prevDate.getDate() - 7);
+  return getISOWeekString(prevDate);
+}
+
+function getWeekRangeFromWeekStr(weekStr: string) {
+  const [year, week] = weekStr.split('-W').map(Number);
+  const simple = new Date(year, 0, 1 + (week - 1) * 7);
+  const dayOfWeek = simple.getDay();
+  const ISOweekStart = new Date(simple);
+  if (dayOfWeek <= 4) {
+    ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1);
+  } else {
+    ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
+  }
+
+  const monday = new Date(ISOweekStart);
+  monday.setHours(-7, 0, 0, 0);
+
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 7);
+  sunday.setMilliseconds(-1);
+
+  return { start: monday, end: sunday };
 }
