@@ -27,11 +27,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const isManual = isManualParam || 
-                     Boolean(groupIdParam) || 
-                     (adminPasswordHeader === '8888') || 
-                     (secretParam === '8888') || 
-                     (adminPasswordParam === '8888');
+    const isManual = isManualParam || Boolean(groupIdParam);
 
     // If not manual trigger, check if today is the scheduled day and hour
     if (!isManual) {

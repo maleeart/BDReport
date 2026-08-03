@@ -5,6 +5,11 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   try {
+    const adminPassword = req.headers.get('x-admin-password');
+    if (adminPassword !== '8888') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await req.json();
     const { userId, timestamp, editedSummary, originalSummary } = body;
 

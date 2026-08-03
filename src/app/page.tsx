@@ -744,9 +744,13 @@ export default function Dashboard() {
     setActionLoading(true);
     try {
       const lines = editingText.split('\n').map(l => l.trim()).filter(Boolean);
+      const pwd = adminPassword || adminPasswordInput || '8888';
       const res = await fetch('/api/reports/edit', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-admin-password': pwd
+        },
         body: JSON.stringify({
           userId: report.userId,
           timestamp: report.sortTimestamp,
@@ -775,9 +779,13 @@ export default function Dashboard() {
     }
     setActionLoading(true);
     try {
+      const pwd = adminPassword || adminPasswordInput || '8888';
       const res = await fetch('/api/reports/edit', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-admin-password': pwd
+        },
         body: JSON.stringify({
           userId: report.userId,
           timestamp: report.sortTimestamp,
@@ -818,9 +826,13 @@ export default function Dashboard() {
 
     setActionLoading(true);
     try {
+      const pwd = adminPassword || adminPasswordInput || '8888';
       const res = await fetch('/api/reports/merge', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-admin-password': pwd
+        },
         body: JSON.stringify({ primary, secondaries }),
       });
 
