@@ -92,6 +92,8 @@ export default function Dashboard() {
   const [isPushingWeeklyReports, setIsPushingWeeklyReports] = useState<boolean>(false);
   const [weeklyPushDay, setWeeklyPushDay] = useState<number>(1);
   const [weeklyPushHour, setWeeklyPushHour] = useState<number>(8);
+  const [confirmedPushDay, setConfirmedPushDay] = useState<number | null>(null);
+  const [confirmedPushHour, setConfirmedPushHour] = useState<number | null>(null);
   const [newKeywordGroupName, setNewKeywordGroupName] = useState<string>('');
   const [newKeywordList, setNewKeywordList] = useState<string[]>([]);
   const [currentNewKeywordInput, setCurrentNewKeywordInput] = useState<string>('');
@@ -316,12 +318,32 @@ export default function Dashboard() {
       const res = await fetch('/api/settings/weekly-push');
       if (res.ok) {
         const data = await res.json();
-        setWeeklyPushDay(data.sendDay !== undefined ? data.sendDay : 1);
-        setWeeklyPushHour(data.sendHour !== undefined ? data.sendHour : 8);
+        const day = data.sendDay !== undefined ? data.sendDay : 1;
+        const hour = data.sendHour !== undefined ? data.sendHour : 8;
+        setWeeklyPushDay(day);
+        setWeeklyPushHour(hour);
+        setConfirmedPushDay(day);
+        setConfirmedPushHour(hour);
       }
     } catch (err) {
       console.error('Error fetching weekly push setting:', err);
     }
+  };
+
+  const getWeeklyPushScheduleText = (day: number | null, hour: number | null) => {
+    if (day === null) return '🔄 กำลังโหลดข้อมูล...';
+    if (day === -1) return '❌ ปิดใช้งานการส่งรายงานอัตโนมัติ';
+    const dayNames = [
+      'วันอาทิตย์ (Sunday)',
+      'วันจันทร์ (Monday)',
+      'วันอังคาร (Tuesday)',
+      'วันพุธ (Wednesday)',
+      'วันพฤหัสบดี (Thursday)',
+      'วันศุกร์ (Friday)',
+      'วันเสาร์ (Saturday)'
+    ];
+    const hourStr = String(hour).padStart(2, '0') + ':00 น.';
+    return `ส่งทุก ${dayNames[day]} เวลา ${hourStr}`;
   };
 
   const handleSaveWeeklyPushSettings = async (day: number, hour: number) => {
@@ -337,6 +359,8 @@ export default function Dashboard() {
       if (!res.ok) throw new Error('ไม่สามารถบันทึกวันและเวลาส่งรายงานอัตโนมัติได้');
       setWeeklyPushDay(day);
       setWeeklyPushHour(hour);
+      setConfirmedPushDay(day);
+      setConfirmedPushHour(hour);
       alert('บันทึกการตั้งค่าวันและเวลาส่งรายงานอัตโนมัติสำเร็จแล้ว');
     } catch (err: any) {
       console.error(err);
@@ -2060,7 +2084,6 @@ export default function Dashboard() {
                   {/* Tab 1: Group Visibility */}
                   {adminTab === 'groups' && (
                     <>
-                      {/* Weekly Push Global settings */}
                       <div style={{
                         display: 'flex',
                         flexDirection: 'column',
@@ -2071,6 +2094,23 @@ export default function Dashboard() {
                         borderRadius: '8px',
                         marginBottom: '14px'
                       }}>
+                        <div style={{
+                          padding: '8px 12px',
+                          backgroundColor: confirmedPushDay === -1 ? 'rgba(239, 68, 68, 0.08)' : 'rgba(16, 185, 129, 0.08)',
+                          color: confirmedPushDay === -1 ? (darkMode ? '#F87171' : '#059669') : (darkMode ? '#34D399' : '#059669'),
+                          border: `1px solid ${confirmedPushDay === -1 ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'}`,
+                          borderRadius: '6px',
+                          fontSize: '0.78rem',
+                          fontWeight: 'bold',
+                          marginBottom: '4px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}>
+                          <span style={{ color: darkMode ? '#94A3B8' : '#64748B', fontWeight: 500 }}>ตั้งค่าปัจจุบันในระบบ:</span>
+                          <span>{getWeeklyPushScheduleText(confirmedPushDay, confirmedPushHour)}</span>
+                        </div>
+
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                           <span style={{ fontSize: '0.85rem', fontWeight: 700, color: darkMode ? '#F8FAFC' : '#1E293B' }}>
                             📅 ตั้งค่าวันส่งรายงานสรุปอัตโนมัติ:
