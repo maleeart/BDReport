@@ -89,7 +89,25 @@ export async function GET(req: NextRequest) {
 
     // Determine target week
     const requestedWeek = searchParams.get('week');
-    let targetWeekStr = requestedWeek || (isManual ? getISOWeekString(new Date()) : getPreviousISOWeekString(new Date()));
+    
+    const now = new Date();
+    const bangkokDate = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+    const bangkokDay = bangkokDate.getUTCDay(); // 0 is Sunday, 1 is Monday...
+    
+    let defaultWeek: string;
+    if (isManual) {
+      defaultWeek = getISOWeekString(bangkokDate);
+    } else {
+      // If automated push runs on Sunday (0), we send the current week (just ending).
+      // If it runs on Monday (1) or later, we send the previous week.
+      if (bangkokDay === 0) {
+        defaultWeek = getISOWeekString(bangkokDate);
+      } else {
+        defaultWeek = getPreviousISOWeekString(bangkokDate);
+      }
+    }
+    
+    let targetWeekStr = requestedWeek || defaultWeek;
     let range = getWeekRangeFromWeekStr(targetWeekStr);
 
     const accessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
