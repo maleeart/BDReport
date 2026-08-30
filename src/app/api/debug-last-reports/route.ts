@@ -11,43 +11,48 @@ export async function GET(req: NextRequest) {
 
     const groupId = 'Ce96900ec1b6844a7bb4ca679d1cf4eba';
     
-    // Get last 15 reports for this group sorted by createdAt desc
+    // Fetch last 50 reports for this group without orderby to avoid missing index error
     const reportsSnapshot = await db.collection('line_reports')
       .where('groupId', '==', groupId)
-      .orderBy('createdAt', 'desc')
-      .limit(15)
       .get();
 
-    const reports = reportsSnapshot.docs.map(doc => {
+    let reports = reportsSnapshot.docs.map(doc => {
       const data = doc.data();
       return {
         id: doc.id,
         userName: data.userName,
         createdAt: data.createdAt ? new Date(data.createdAt.seconds * 1000).toISOString() : null,
+        createdSeconds: data.createdAt ? data.createdAt.seconds : 0,
         content: data.content
       };
     });
 
-    // Also get the last 5 reports overall in the system to see if the webhook is receiving anything at all
+    // Sort desc in memory
+    reports.sort((a, b) => b.createdSeconds - a.createdSeconds);
+    reports = reports.slice(0, 15);
+
+    // Also get the last 5 reports overall in the system
     const allSnapshot = await db.collection('line_reports')
-      .orderBy('createdAt', 'desc')
-      .limit(5)
       .get();
 
-    const allReports = allSnapshot.docs.map(doc => {
+    let allReports = allSnapshot.docs.map(doc => {
       const data = doc.data();
       return {
         id: doc.id,
         groupId: data.groupId,
         userName: data.userName,
         createdAt: data.createdAt ? new Date(data.createdAt.seconds * 1000).toISOString() : null,
+        createdSeconds: data.createdAt ? data.createdAt.seconds : 0,
         content: data.content
       };
     });
 
+    allReports.sort((a, b) => b.createdSeconds - a.createdSeconds);
+    allReports = allReports.slice(0, 10);
+
     return NextResponse.json({
       groupName: "งานอาคารและบริเวณ",
-      reportsCount: reports.length,
+      reportsCount: reportsSnapshot.size,
       reports,
       allReports
     });
