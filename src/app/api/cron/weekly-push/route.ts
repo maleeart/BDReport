@@ -62,13 +62,14 @@ export async function GET(req: NextRequest) {
     // Fetch all LINE groups
     const groupsSnapshot = await db.collection('line_groups').get();
     
-    let activeGroups: Array<{ groupId: string; groupName: string }> = [];
+    let activeGroups: Array<{ groupId: string; groupName: string; defaultFilterGroup: string; lastPushedWeek?: string }> = [];
 
     if (groupIdParam) {
       const matchDoc = groupsSnapshot.docs.find(doc => doc.id === groupIdParam);
       const gName = matchDoc?.data()?.groupName || `กลุ่ม LINE (${groupIdParam.substring(0, 6)})`;
       const filterGroup = matchDoc?.data()?.defaultFilterGroup || '0';
-      activeGroups = [{ groupId: groupIdParam, groupName: gName, defaultFilterGroup: filterGroup }];
+      const lastPushed = matchDoc?.data()?.lastPushedWeek || '';
+      activeGroups = [{ groupId: groupIdParam, groupName: gName, defaultFilterGroup: filterGroup, lastPushedWeek: lastPushed }];
     } else {
       if (groupsSnapshot.empty) {
         return NextResponse.json({ message: 'No groups found in database' });
@@ -78,7 +79,8 @@ export async function GET(req: NextRequest) {
         .map(doc => ({
           groupId: doc.id,
           groupName: doc.data()?.groupName || 'กลุ่ม LINE',
-          defaultFilterGroup: doc.data()?.defaultFilterGroup || '0'
+          defaultFilterGroup: doc.data()?.defaultFilterGroup || '0',
+          lastPushedWeek: doc.data()?.lastPushedWeek || ''
         }))
         .filter(g => g.groupId && !g.groupId.startsWith('private_'));
     }
@@ -141,8 +143,14 @@ export async function GET(req: NextRequest) {
 
     // Loop through each active group
     for (const group of activeGroups) {
+      // 1. Deduplication check: Skip if already pushed for this week (unless manual)
+      if (!isManual && group.lastPushedWeek === targetWeekStr) {
+        results.push({ groupId: group.groupId, groupName: group.groupName, status: 'skipped', reason: 'Already pushed for this week (deduplicated)' });
+        continue;
+      }
+
       let activeKeywords: string[] = [];
-      const filterGroupId = (group as any).defaultFilterGroup || '0';
+      const filterGroupId = group.defaultFilterGroup || '0';
       
       if (filterGroupId !== '0') {
         const matchedKwGroup = allKwDocs.find(g => g.id === filterGroupId);
@@ -326,6 +334,11 @@ export async function GET(req: NextRequest) {
         const errorText = await pushRes.text();
         results.push({ groupId: group.groupId, targetLineId, groupName: group.groupName, status: 'failed', error: errorText });
       } else {
+        // Update lastPushedWeek in Firestore to prevent duplicate triggers
+        await db.collection('line_groups').doc(group.groupId).set({
+          lastPushedWeek: targetWeekStr
+        }, { merge: true });
+
         results.push({ groupId: group.groupId, targetLineId, groupName: group.groupName, status: 'success' });
       }
     }
