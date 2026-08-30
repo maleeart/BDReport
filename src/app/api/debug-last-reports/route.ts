@@ -11,9 +11,13 @@ export async function GET(req: NextRequest) {
 
     const groupId = 'Ce96900ec1b6844a7bb4ca679d1cf4eba';
     
-    // Fetch last 50 reports for this group without orderby to avoid missing index error
+    // Fetch last 15 reports for this group by querying the last 7 days
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
     const reportsSnapshot = await db.collection('line_reports')
       .where('groupId', '==', groupId)
+      .where('createdAt', '>=', sevenDaysAgo)
       .get();
 
     let reports = reportsSnapshot.docs.map(doc => {
@@ -27,34 +31,30 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    // Sort desc in memory
     reports.sort((a, b) => b.createdSeconds - a.createdSeconds);
-    reports = reports.slice(0, 15);
 
-    // Also get the last 5 reports overall in the system
+    // Get the last 10 reports overall in the system (fast query using index on createdAt)
     const allSnapshot = await db.collection('line_reports')
+      .orderBy('createdAt', 'desc')
+      .limit(10)
       .get();
 
-    let allReports = allSnapshot.docs.map(doc => {
+    const allReports = allSnapshot.docs.map(doc => {
       const data = doc.data();
       return {
         id: doc.id,
         groupId: data.groupId,
         userName: data.userName,
         createdAt: data.createdAt ? new Date(data.createdAt.seconds * 1000).toISOString() : null,
-        createdSeconds: data.createdAt ? data.createdAt.seconds : 0,
         content: data.content
       };
     });
 
-    allReports.sort((a, b) => b.createdSeconds - a.createdSeconds);
-    allReports = allReports.slice(0, 10);
-
     return NextResponse.json({
       groupName: "งานอาคารและบริเวณ",
-      reportsCount: reportsSnapshot.size,
+      reportsInLast7Days: reports.length,
       reports,
-      allReports
+      allReportsInSystem: allReports
     });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
