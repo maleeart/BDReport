@@ -11,22 +11,21 @@ export async function GET(req: NextRequest) {
 
     const userId = 'Ud6e9a1c7375b84ad1b8aa877b83981ab';
     
-    // Fetch all reports for this user in Week 35
-    // Monday August 24 00:00:00 Bangkok time is Aug 23 17:00:00 UTC
-    // Sunday August 30 23:59:59 Bangkok time is Aug 30 16:59:59 UTC
+    // Fetch all reports in Week 35 (Monday Aug 24 - Sunday Aug 30) using only single-field index on createdAt
     const monday = new Date('2026-08-23T17:00:00Z');
     const sunday = new Date('2026-08-30T16:59:59.999Z');
 
     const snapshot = await db.collection('line_reports')
-      .where('userId', '==', userId)
       .where('createdAt', '>=', monday)
       .where('createdAt', '<=', sunday)
       .get();
 
-    const reports = snapshot.docs.map(doc => {
+    // Filter by userId in memory to avoid composite index requirement
+    const allReports = snapshot.docs.map(doc => {
       const data = doc.data();
       return {
         id: doc.id,
+        userId: data.userId,
         groupId: data.groupId,
         type: data.type,
         content: data.content || null,
@@ -34,6 +33,8 @@ export async function GET(req: NextRequest) {
         createdAt: data.createdAt ? new Date(data.createdAt.seconds * 1000).toISOString() : null
       };
     });
+
+    const reports = allReports.filter(r => r.userId === userId);
 
     // Sort chronologically
     reports.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
@@ -100,6 +101,7 @@ export async function GET(req: NextRequest) {
     });
 
     return NextResponse.json({
+      totalScannedReportsInWeek35: allReports.length,
       reportsCount: reports.length,
       reports,
       taskGroupsCount: taskGroups.length,
