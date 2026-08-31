@@ -300,8 +300,11 @@ export async function GET(req: NextRequest) {
             }
           }
 
+          // If the time gap is very large (e.g., more than 30 minutes), always split regardless of completeness
+          const isTimeGapHuge = timeDiff > 1800000; // 30 minutes
+
           // Only time-gap split when group is already complete; incomplete groups wait for their complement
-          const shouldSplit = (isTimeGapLarge && isCompleteJob) || isSecondText || (report.type === 'image' && isCompleteJob && isFutureJobStart);
+          const shouldSplit = isTimeGapHuge || (isTimeGapLarge && isCompleteJob) || isSecondText || (report.type === 'image' && isCompleteJob && isFutureJobStart);
 
           if (shouldSplit) {
             taskGroups.push(currentGroup);
