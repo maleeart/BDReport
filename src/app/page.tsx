@@ -1972,7 +1972,7 @@ export default function Dashboard() {
         <p>
           <span>© 2026 EGAT BDReport</span>
           <span className="bdreport-footer-sep"> &nbsp;·&nbsp; </span>
-          <span className="bdreport-footer-admin">ผู้ดูแลระบบ: นายตวงเพชร ชัยยานนท์ วศ.4 หบอว-ธ. กบห-ธ. ชธธ.</span>
+          <span className="bdreport-footer-admin">ผู้ดูแลระบบ: นายตวงเพชร ชัยยานนท์ วศ.4 หบท-ธ. กบห-ธ. ชธธ.</span>
         </p>
       </footer>
 
